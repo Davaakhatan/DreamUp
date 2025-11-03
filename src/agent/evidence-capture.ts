@@ -52,7 +52,8 @@ export class EvidenceCapture {
       return screenshotInfo;
     } catch (error) {
       console.error('Failed to capture screenshot:', error);
-      // Return empty info on failure (graceful degradation)
+      // Don't add failed screenshots to the array - they cause evaluation issues
+      // Return empty info but don't push it
       return {
         filename: '',
         timestamp: new Date().toISOString(),
@@ -77,10 +78,11 @@ export class EvidenceCapture {
   }
 
   /**
-   * Get all captured screenshots
+   * Get all captured screenshots (only valid ones with filenames)
    */
   getScreenshots(): ScreenshotInfo[] {
-    return [...this.screenshots];
+    // Filter out failed screenshots (empty filename)
+    return this.screenshots.filter(s => s.filename && s.filename.length > 0);
   }
 
   /**

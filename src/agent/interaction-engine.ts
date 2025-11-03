@@ -93,6 +93,7 @@ export class InteractionEngine {
    */
   async detectAndInteract(): Promise<void> {
     // Try to find and click common start/play buttons
+    // Use valid CSS selectors and XPath for text-based matching
     const commonSelectors = [
       'button.start',
       'button.play',
@@ -100,12 +101,15 @@ export class InteractionEngine {
       '.play-button',
       '[data-action="start"]',
       '[data-action="play"]',
-      'button:contains("Start")',
-      'button:contains("Play")',
       '#start',
       '#play',
+      'button[id*="start" i]',
+      'button[id*="play" i]',
+      'button[class*="start" i]',
+      'button[class*="play" i]',
     ];
 
+    // First try CSS selectors
     for (const selector of commonSelectors) {
       try {
         const exists = await this.session.evaluate(
@@ -114,10 +118,53 @@ export class InteractionEngine {
         if (exists) {
           await this.session.click(selector);
           await this.session.wait(1000);
-          break;
+          return;
         }
       } catch (error) {
         // Continue trying other selectors
+        continue;
+      }
+    }
+
+    // Then try XPath for text-based matching (buttons containing "Start" or "Play")
+    const textButtons = ['Start', 'Play', 'Begin', 'Go'];
+    for (const text of textButtons) {
+      try {
+        const found = await this.session.evaluate(`
+          (() => {
+            const xpath = ".//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '${text.toLowerCase()}')]";
+            const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+            return result.singleNodeValue;
+          })()
+        `);
+        
+        if (found) {
+          // Get the button element and click it
+          const buttonSelector = await this.session.evaluate(`
+            (() => {
+              const xpath = ".//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '${text.toLowerCase()}')]";
+              const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+              const button = result.singleNodeValue;
+              if (button) {
+                // Try to find a unique selector for this button
+                if (button.id) return '#' + button.id;
+                if (button.className) return '.' + button.className.split(' ')[0];
+                // Generate a unique attribute
+                button.setAttribute('data-qa-found', 'true');
+                return 'button[data-qa-found="true"]';
+              }
+              return null;
+            })()
+          `) as string | null;
+          
+          if (buttonSelector) {
+            await this.session.click(buttonSelector);
+            await this.session.wait(1000);
+            return;
+          }
+        }
+      } catch (error) {
+        // Continue trying other text buttons
         continue;
       }
     }

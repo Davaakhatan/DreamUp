@@ -10,7 +10,7 @@ export class Evaluator {
   private client: OpenAI;
   private model: string;
 
-  constructor(apiKey?: string, model: string = 'gpt-4-turbo-preview') {
+  constructor(apiKey?: string, model: string = 'gpt-4o') {
     const key = apiKey || process.env.OPENAI_API_KEY;
     if (!key) {
       throw new Error(
@@ -31,8 +31,11 @@ export class Evaluator {
     consoleWarnings: string[],
     executionTimeSeconds: number
   ): Promise<QAReport> {
+    // Filter out invalid screenshots
+    const validScreenshots = screenshots.filter(s => s.filename && s.filename.length > 0);
+    
     // Load screenshot images for vision analysis
-    const screenshotBuffers = await this.loadScreenshots(screenshots);
+    const screenshotBuffers = await this.loadScreenshots(validScreenshots);
     
     // Prepare evaluation prompt
     const evaluationPrompt = this.buildEvaluationPrompt(
@@ -46,24 +49,26 @@ export class Evaluator {
       // Use vision API if we have screenshots
       let analysis: string;
       if (screenshotBuffers.length > 0) {
+        console.log(`Evaluating game with ${screenshotBuffers.length} screenshot(s) using GPT-4 Vision`);
         analysis = await this.analyzeWithVision(
           screenshotBuffers,
           evaluationPrompt
         );
       } else {
-        // Fallback to text-only analysis
-        analysis = await this.analyzeTextOnly(evaluationPrompt);
+        // No screenshots = cannot properly evaluate
+        console.error('CRITICAL: No valid screenshots available - cannot evaluate game playability');
+        throw new Error('No screenshots captured - evaluation requires visual evidence');
       }
 
       // Parse structured response from LLM
       const parsed = this.parseEvaluationResponse(analysis);
 
-      // Build report
+      // Build report with only valid screenshots
       const report: QAReport = {
         status: parsed.status,
         playability_score: parsed.playability_score,
         issues: parsed.issues,
-        screenshots,
+        screenshots: validScreenshots, // Use filtered valid screenshots
         timestamp: new Date().toISOString(),
         game_url: gameUrl,
         execution_time_seconds: executionTimeSeconds,
@@ -76,10 +81,10 @@ export class Evaluator {
       return report;
     } catch (error) {
       console.error('Evaluation failed:', error);
-      // Return fallback report on error
+      // Return fallback report on error (use valid screenshots)
       return this.createFallbackReport(
         gameUrl,
-        screenshots,
+        validScreenshots,
         consoleErrors,
         consoleWarnings,
         executionTimeSeconds
@@ -110,7 +115,7 @@ export class Evaluator {
     ];
 
     const response = await this.client.chat.completions.create({
-      model: 'gpt-4-vision-preview',
+      model: this.model, // Use the configured model (gpt-4o supports vision)
       messages,
       max_tokens: 2000,
     });
@@ -213,14 +218,20 @@ Be strict: a game that doesn't load gets status "fail" and score 0-20. A fully p
   ): Promise<Buffer[]> {
     const { readFile } = await import('fs/promises');
     const { join } = await import('path');
+    const { existsSync } = await import('fs');
 
     const buffers: Buffer[] = [];
     for (const screenshot of screenshots) {
-      if (screenshot.filename) {
+      if (screenshot.filename && screenshot.filename.length > 0) {
         try {
           const filepath = join('./output', 'screenshots', screenshot.filename);
-          const buffer = await readFile(filepath);
-          buffers.push(buffer);
+          // Check if file exists before reading
+          if (existsSync(filepath)) {
+            const buffer = await readFile(filepath);
+            buffers.push(buffer);
+          } else {
+            console.warn(`Screenshot file not found: ${screenshot.filename}`);
+          }
         } catch (error) {
           console.warn(`Failed to load screenshot ${screenshot.filename}:`, error);
         }

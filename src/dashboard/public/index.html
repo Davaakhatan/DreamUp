@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';">
   <title>DreamUp QA Dashboard</title>
   <style>
     * {
@@ -41,18 +42,22 @@
     }
 
     header {
-      margin-bottom: 3rem;
+      margin-bottom: 4rem;
       text-align: center;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
     }
 
     h1 {
-      font-size: 2.5rem;
-      font-weight: 700;
-      margin-bottom: 0.5rem;
-      background: linear-gradient(135deg, var(--accent), #6366f1);
+      font-size: 3rem;
+      font-weight: 800;
+      margin-bottom: 0.75rem;
+      background: linear-gradient(135deg, var(--accent) 0%, #6366f1 50%, #8b5cf6 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
+      letter-spacing: -0.5px;
+      line-height: 1.1;
     }
 
     .subtitle {
@@ -68,17 +73,36 @@
     }
 
     .stat-card {
-      background: var(--bg-card);
+      background: linear-gradient(135deg, var(--bg-card) 0%, rgba(22, 33, 62, 0.8) 100%);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.5rem;
+      border-radius: 16px;
+      padding: 2rem 1.5rem;
       text-align: center;
-      transition: transform 0.2s, box-shadow 0.2s;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
     }
 
     .stat-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px var(--shadow);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 32px rgba(0, 212, 255, 0.15);
+      border-color: rgba(0, 212, 255, 0.3);
+    }
+
+    .stat-card:hover::before {
+      opacity: 1;
     }
 
     .stat-value {
@@ -104,17 +128,36 @@
     }
 
     .report-card {
-      background: var(--bg-card);
+      background: linear-gradient(135deg, var(--bg-card) 0%, rgba(22, 33, 62, 0.9) 100%);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.5rem;
-      transition: all 0.2s;
+      border-radius: 16px;
+      padding: 2rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .report-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--accent);
+      opacity: 0;
+      transition: opacity 0.3s;
     }
 
     .report-card:hover {
-      border-color: var(--accent);
-      box-shadow: 0 4px 16px var(--shadow);
+      border-color: rgba(0, 212, 255, 0.5);
+      box-shadow: 0 8px 32px rgba(0, 212, 255, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .report-card:hover::before {
+      opacity: 1;
     }
 
     .report-header {
@@ -131,21 +174,43 @@
       font-weight: 600;
       color: var(--accent);
       word-break: break-all;
+      transition: color 0.2s;
+    }
+
+    .report-title:hover {
+      color: var(--accent-hover);
+      text-decoration: underline;
     }
 
     .report-badge {
-      display: inline-block;
-      padding: 0.25rem 0.75rem;
-      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 24px;
       font-size: 0.75rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      border: 1px solid;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
 
-    .badge-pass { background: rgba(16, 185, 129, 0.2); color: var(--success); }
-    .badge-partial { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
-    .badge-fail, .badge-error { background: rgba(239, 68, 68, 0.2); color: var(--error); }
+    .badge-pass { 
+      background: rgba(16, 185, 129, 0.15); 
+      color: var(--success); 
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+    .badge-partial { 
+      background: rgba(245, 158, 11, 0.15); 
+      color: var(--warning); 
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+    .badge-fail, .badge-error { 
+      background: rgba(239, 68, 68, 0.15); 
+      color: var(--error); 
+      border-color: rgba(239, 68, 68, 0.3);
+    }
 
     .report-meta {
       display: flex;
@@ -160,6 +225,18 @@
       align-items: center;
       gap: 0.5rem;
       color: var(--text-secondary);
+      transition: color 0.2s;
+    }
+
+    .meta-item:hover {
+      color: var(--text-primary);
+    }
+
+    .meta-item svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      opacity: 0.7;
     }
 
     .score-bar {
@@ -186,12 +263,44 @@
     }
 
     .issue-item {
-      padding: 0.75rem;
-      background: rgba(239, 68, 68, 0.1);
-      border-left: 3px solid var(--error);
-      border-radius: 4px;
-      margin-bottom: 0.5rem;
+      padding: 0.875rem 1rem;
+      border-radius: 6px;
+      margin-bottom: 0.75rem;
       font-size: 0.875rem;
+      line-height: 1.5;
+      border-left: 3px solid;
+      transition: all 0.2s;
+    }
+
+    .issue-item:hover {
+      transform: translateX(4px);
+    }
+
+    .issue-critical {
+      background: rgba(239, 68, 68, 0.1);
+      border-left-color: var(--error);
+      color: #fca5a5;
+    }
+
+    .issue-warning {
+      background: rgba(245, 158, 11, 0.1);
+      border-left-color: var(--warning);
+      color: #fcd34d;
+    }
+
+    .issue-info {
+      background: rgba(59, 130, 246, 0.1);
+      border-left-color: #3b82f6;
+      color: #93c5fd;
+    }
+
+    .issue-severity {
+      display: inline-block;
+      font-weight: 600;
+      margin-right: 0.5rem;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.5px;
     }
 
     .screenshots-grid {
@@ -202,20 +311,56 @@
     }
 
     .screenshot-item {
-      border-radius: 8px;
+      border-radius: 12px;
       overflow: hidden;
-      border: 1px solid var(--border);
-      transition: transform 0.2s;
+      border: 2px solid var(--border);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+      position: relative;
+      background: var(--bg-secondary);
+    }
+
+    .screenshot-item::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
     }
 
     .screenshot-item:hover {
-      transform: scale(1.05);
+      transform: scale(1.05) translateY(-4px);
+      border-color: var(--accent);
+      box-shadow: 0 8px 24px rgba(0, 212, 255, 0.3);
+    }
+
+    .screenshot-item:hover::after {
+      opacity: 1;
     }
 
     .screenshot-item img {
       width: 100%;
       height: auto;
       display: block;
+      object-fit: cover;
+    }
+
+    .screenshot-item:hover .screenshot-label {
+      opacity: 1 !important;
+    }
+
+    .screenshot-label {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+      padding: 0.5rem;
+      font-size: 0.75rem;
+      color: white;
+      opacity: 0;
+      transition: opacity 0.2s;
     }
 
     .loading {
@@ -252,6 +397,468 @@
       opacity: 0.5;
     }
 
+    /* Pipeline Animation Styles */
+    .pipeline-demo {
+      background: linear-gradient(135deg, var(--bg-card) 0%, rgba(22, 33, 62, 0.9) 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 3rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pipeline-demo::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      animation: shimmer 3s infinite;
+    }
+
+    @keyframes shimmer {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+
+    .pipeline-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+
+    .pipeline-header h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      background: linear-gradient(135deg, var(--accent), #6366f1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .toggle-btn, .pipeline-btn {
+      padding: 0.5rem 1rem;
+      background: rgba(0, 212, 255, 0.1);
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      border-radius: 8px;
+      color: var(--accent);
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+
+    .toggle-btn:hover, .pipeline-btn:hover {
+      background: rgba(0, 212, 255, 0.2);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .pipeline-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .pipeline-step {
+      flex: 1;
+      min-width: 150px;
+      text-align: center;
+      padding: 1.5rem;
+      background: rgba(26, 26, 46, 0.5);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      opacity: 0.5;
+      transform: scale(0.95);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pipeline-step::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .pipeline-step.active {
+      opacity: 1;
+      transform: scale(1.05);
+      border-color: var(--accent);
+      box-shadow: 0 8px 24px rgba(0, 212, 255, 0.3);
+      background: rgba(0, 212, 255, 0.05);
+    }
+
+    .pipeline-step.active::before {
+      opacity: 1;
+    }
+
+    .pipeline-step.completed {
+      opacity: 0.8;
+      border-color: var(--success);
+    }
+
+    .step-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 0.5rem;
+      color: var(--text-secondary);
+      transition: all 0.3s;
+      filter: drop-shadow(0 2px 8px rgba(0, 212, 255, 0.2));
+    }
+
+    .pipeline-step.active .step-icon {
+      color: var(--accent);
+      transform: scale(1.1);
+    }
+
+    .pipeline-step.completed .step-icon {
+      color: var(--success);
+    }
+
+    .step-icon svg {
+      width: 100%;
+      height: 100%;
+    }
+
+
+    .step-label {
+      font-weight: 600;
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+      color: var(--text-primary);
+    }
+
+    .step-description {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    .step-status {
+      font-weight: 500;
+      animation: pulse-text 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-text {
+      0%, 100% { opacity: 0.7; }
+      50% { opacity: 1; }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.8; }
+    }
+
+    /* Browser Simulation Styles */
+    .browser-simulation {
+      margin-bottom: 3rem;
+      animation: slideDown 0.5s ease-out;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .browser-window {
+      background: #1e1e1e;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border);
+    }
+
+    .browser-header {
+      background: #2d2d2d;
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .browser-controls {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .browser-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .browser-dot.red {
+      background: #ff5f57;
+    }
+
+    .browser-dot.yellow {
+      background: #ffbd2e;
+    }
+
+    .browser-dot.green {
+      background: #28ca42;
+    }
+
+    .browser-address-bar {
+      flex: 1;
+      background: #1e1e1e;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.5rem 1rem;
+      display: flex;
+      align-items: center;
+      font-size: 0.875rem;
+      color: var(--text-primary);
+      font-family: 'Monaco', 'Menlo', monospace;
+    }
+
+    .browser-url {
+      color: var(--accent);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .browser-actions {
+      color: var(--text-secondary);
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .browser-content {
+      background: white;
+      min-height: 400px;
+      position: relative;
+    }
+
+    .browser-page {
+      width: 100%;
+      height: 100%;
+      min-height: 400px;
+      background: white;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .browser-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      min-height: 400px;
+      color: #666;
+      font-size: 0.875rem;
+    }
+
+    .spinner-small {
+      width: 32px;
+      height: 32px;
+      border: 3px solid rgba(0, 0, 0, 0.1);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 1rem;
+    }
+
+    .browser-game-content {
+      padding: 2rem;
+      text-align: center;
+      color: #333;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .browser-game-content h2 {
+      color: #222;
+      margin-bottom: 1rem;
+    }
+
+    .browser-status {
+      background: #2d2d2d;
+      padding: 0.5rem 1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .browser-status::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .browser-status.loading::before {
+      background: var(--accent);
+      animation: pulse-dot 1s ease-in-out infinite;
+    }
+
+    .browser-status.error::before {
+      background: var(--error);
+    }
+
+    .pipeline-arrow {
+      width: 32px;
+      height: 32px;
+      color: var(--text-secondary);
+      opacity: 0.3;
+      transition: all 0.3s;
+      flex-shrink: 0;
+    }
+
+    .pipeline-arrow svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .pipeline-step.active ~ .pipeline-arrow,
+    .pipeline-step.completed ~ .pipeline-arrow {
+      opacity: 1;
+      color: var(--accent);
+    }
+
+
+    /* Test Runner Styles */
+    .test-runner {
+      background: linear-gradient(135deg, var(--bg-card) 0%, rgba(22, 33, 62, 0.9) 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 3rem;
+    }
+
+    .test-runner-header {
+      margin-bottom: 1.5rem;
+    }
+
+    .test-runner-header h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      background: linear-gradient(135deg, var(--accent), #6366f1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .test-runner-form {
+      display: flex;
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .url-input {
+      flex: 1;
+      padding: 1rem 1.5rem;
+      background: rgba(26, 26, 46, 0.5);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      color: var(--text-primary);
+      font-size: 1rem;
+      transition: all 0.3s;
+    }
+
+    .url-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+    }
+
+    .url-input::placeholder {
+      color: var(--text-secondary);
+      opacity: 0.6;
+    }
+
+    .run-test-btn {
+      padding: 1rem 2rem;
+      background: linear-gradient(135deg, var(--accent), #6366f1);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      white-space: nowrap;
+    }
+
+    .run-test-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 212, 255, 0.3);
+    }
+
+    .run-test-btn:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .run-test-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn-spinner {
+      animation: spin 1s linear infinite;
+    }
+
+    .btn-spinner svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .test-status {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+    }
+
+    .test-status.running {
+      background: rgba(59, 130, 246, 0.1);
+      border-left: 3px solid #3b82f6;
+      color: #93c5fd;
+    }
+
+    .test-status.success {
+      background: rgba(16, 185, 129, 0.1);
+      border-left: 3px solid var(--success);
+      color: #6ee7b7;
+    }
+
+    .test-status.error {
+      background: rgba(239, 68, 68, 0.1);
+      border-left: 3px solid var(--error);
+      color: #fca5a5;
+    }
+
     @media (max-width: 768px) {
       .container {
         padding: 1rem;
@@ -265,15 +872,179 @@
         flex-direction: column;
         align-items: flex-start;
       }
+
+      .pipeline-container {
+        flex-direction: column;
+      }
+
+      .pipeline-arrow {
+        transform: rotate(90deg);
+        margin: 0.5rem 0;
+      }
+
+      .test-runner-form {
+        flex-direction: column;
+      }
+
+      .run-test-btn {
+        width: 100%;
+        justify-content: center;
+      }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>🎮 DreamUp QA Dashboard</h1>
+      <h1>DreamUp QA Dashboard</h1>
       <p class="subtitle">Browser Game Testing Results & Analytics</p>
     </header>
+
+    <!-- Test Runner Section -->
+    <div class="test-runner">
+      <div class="test-runner-header">
+        <h2>Test a Game</h2>
+      </div>
+      <div class="test-runner-form">
+        <input 
+          type="url" 
+          id="game-url-input" 
+          class="url-input" 
+          placeholder="Enter game URL (e.g., https://play2048.co/)" 
+          value=""
+        >
+        <button id="run-test-btn" class="run-test-btn">
+          <span class="btn-text">Run Test</span>
+          <span class="btn-spinner" style="display: none;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            </svg>
+          </span>
+        </button>
+      </div>
+      <div id="test-status" class="test-status" style="display: none;"></div>
+    </div>
+
+    <!-- Browser Simulation Window (Shown during test) -->
+    <div id="browser-simulation" class="browser-simulation" style="display: none;">
+      <div class="browser-window">
+        <div class="browser-header">
+          <div class="browser-controls">
+            <span class="browser-dot red"></span>
+            <span class="browser-dot yellow"></span>
+            <span class="browser-dot green"></span>
+          </div>
+          <div class="browser-address-bar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 0.5rem;">
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="M21 21l-4.35-4.35"></path>
+            </svg>
+            <span id="browser-url" class="browser-url">about:blank</span>
+          </div>
+          <div class="browser-actions">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </div>
+        </div>
+        <div class="browser-content">
+          <div id="browser-page" class="browser-page">
+            <div class="browser-loading">
+              <div class="spinner-small"></div>
+              <p>Loading...</p>
+            </div>
+          </div>
+        </div>
+        <div class="browser-status" id="browser-status">
+          <span>Ready</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pipeline Animation Section (Hidden by default, shown when test starts) -->
+    <div id="pipeline-demo" class="pipeline-demo" style="display: none;">
+      <div class="pipeline-header">
+        <h2>How Testing Works</h2>
+        <button id="toggle-pipeline" class="toggle-btn">Hide</button>
+      </div>
+      <div class="pipeline-container">
+        <div class="pipeline-step active" data-step="1">
+          <div class="step-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            </svg>
+          </div>
+          <div class="step-label">Load Game</div>
+          <div class="step-description">Opens browser and navigates to game URL</div>
+          <div class="step-status" style="display: none; margin-top: 0.5rem; font-size: 0.75rem; color: var(--accent);"></div>
+        </div>
+        <div class="pipeline-arrow">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </div>
+        <div class="pipeline-step" data-step="2">
+          <div class="step-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="9" cy="9" r="2"></circle>
+              <path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
+            </svg>
+          </div>
+          <div class="step-label">Capture Evidence</div>
+          <div class="step-description">Takes screenshots and captures console logs</div>
+          <div class="step-status" style="display: none; margin-top: 0.5rem; font-size: 0.75rem; color: var(--accent);"></div>
+        </div>
+        <div class="pipeline-arrow">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </div>
+        <div class="pipeline-step" data-step="3">
+          <div class="step-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 11l3 3L22 4"></path>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+            </svg>
+          </div>
+          <div class="step-label">Interact</div>
+          <div class="step-description">Simulates gameplay interactions</div>
+          <div class="step-status" style="display: none; margin-top: 0.5rem; font-size: 0.75rem; color: var(--accent);"></div>
+        </div>
+        <div class="pipeline-arrow">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </div>
+        <div class="pipeline-step" data-step="4">
+          <div class="step-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M12 16v-4M12 8h.01"></path>
+            </svg>
+          </div>
+          <div class="step-label">AI Analysis</div>
+          <div class="step-description">GPT-4 Vision evaluates playability</div>
+          <div class="step-status" style="display: none; margin-top: 0.5rem; font-size: 0.75rem; color: var(--accent);"></div>
+        </div>
+        <div class="pipeline-arrow">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </div>
+        <div class="pipeline-step" data-step="5">
+          <div class="step-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"></path>
+            </svg>
+          </div>
+          <div class="step-label">Generate Report</div>
+          <div class="step-description">Structured JSON with scores and issues</div>
+          <div class="step-status" style="display: none; margin-top: 0.5rem; font-size: 0.75rem; color: var(--accent);"></div>
+        </div>
+      </div>
+    </div>
 
     <div id="stats" class="stats-grid"></div>
     <div id="reports" class="reports-list">
@@ -285,6 +1056,66 @@
   </div>
 
   <script>
+    // Suppress console errors from browser extensions (harmless)
+    const originalError = console.error;
+    const originalWarn = console.warn;
+    const originalLog = console.log;
+    
+    console.error = function(...args) {
+      const message = args[0]?.toString() || '';
+      // Filter out browser extension errors
+      if (message.includes('chrome-extension://') || 
+          message.includes('background.js') ||
+          message.includes('Could not establish connection') ||
+          message.includes('FrameIsBrowserFrameError') ||
+          message.includes('FrameDoesNotExistError') ||
+          message.includes('ERR_FILE_NOT_FOUND') ||
+          message.includes('Failed to load resource') ||
+          message.includes('completion_list.html') ||
+          message.includes('utils.js') ||
+          message.includes('extensionState.js') ||
+          message.includes('heuristicsRedefinitions.js')) {
+        return; // Don't log extension errors
+      }
+      originalError.apply(console, args);
+    };
+
+    console.warn = function(...args) {
+      const message = args[0]?.toString() || '';
+      // Filter out browser extension warnings
+      if (message.includes('chrome-extension://') || 
+          message.includes('Failed to load resource') ||
+          message.includes('ERR_FILE_NOT_FOUND')) {
+        return;
+      }
+      originalWarn.apply(console, args);
+    };
+    
+    // Filter network errors from extensions
+    window.addEventListener('error', function(e) {
+      if (e.filename && (
+        e.filename.includes('chrome-extension://') ||
+        e.message?.includes('ERR_FILE_NOT_FOUND') ||
+        e.message?.includes('chrome-extension://') ||
+        e.message?.includes('Failed to load resource')
+      )) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    }, true);
+    
+    // Filter unhandled promise rejections from extensions
+    window.addEventListener('unhandledrejection', function(e) {
+      const reason = e.reason?.toString() || '';
+      if (reason.includes('chrome-extension://') || 
+          reason.includes('ERR_FILE_NOT_FOUND') ||
+          reason.includes('Blocked extension request')) {
+        e.preventDefault();
+        return false;
+      }
+    });
+
     const API_BASE = window.location.origin;
 
     async function fetchReports() {
@@ -350,7 +1181,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
             </svg>
             <p>No test reports found</p>
-            <p style="margin-top: 0.5rem; font-size: 0.875rem;">Run tests using: <code style="background: var(--bg-secondary); padding: 0.25rem 0.5rem; border-radius: 4px;">qa-agent test &lt;url&gt;</code></p>
+            <p style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-secondary);">Use the test runner above to test a game</p>
           </div>
         `;
         return;
@@ -369,19 +1200,35 @@
             
             <div class="report-meta">
               <div class="meta-item">
-                <span>⏱</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
                 <span>${report.execution_time_seconds.toFixed(2)}s</span>
               </div>
               <div class="meta-item">
-                <span>📸</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <circle cx="9" cy="9" r="2"></circle>
+                  <path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
+                </svg>
                 <span>${report.screenshots.length} screenshots</span>
               </div>
               <div class="meta-item">
-                <span>🐛</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
                 <span>${report.issues.length} issues</span>
               </div>
               <div class="meta-item">
-                <span>📅</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
                 <span>${formatDate(report.timestamp)}</span>
               </div>
             </div>
@@ -398,28 +1245,574 @@
 
             ${report.issues.length > 0 ? `
               <div class="issues-list">
-                ${report.issues.slice(0, 3).map(issue => `
-                  <div class="issue-item">
-                    <strong>${issue.severity.toUpperCase()}:</strong> ${issue.description}
+                ${report.issues.slice(0, 5).map(issue => {
+                  const severityClass = issue.severity === 'critical' ? 'issue-critical' : 
+                                      issue.severity === 'warning' ? 'issue-warning' : 'issue-info';
+                  return `
+                  <div class="issue-item ${severityClass}">
+                    <span class="issue-severity">${issue.severity.toUpperCase()}:</span>
+                    <span>${issue.description}</span>
+                    ${issue.confidence ? `<span style="opacity: 0.7; font-size: 0.75rem; margin-left: 0.5rem;">(${Math.round(issue.confidence * 100)}%)</span>` : ''}
                   </div>
-                `).join('')}
-                ${report.issues.length > 3 ? `<div style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">+${report.issues.length - 3} more issues</div>` : ''}
+                `;
+                }).join('')}
+                ${report.issues.length > 5 ? `
+                  <div style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.75rem; padding-left: 1rem; font-style: italic;">
+                    +${report.issues.length - 5} more ${report.issues.length - 5 === 1 ? 'issue' : 'issues'}
+                  </div>
+                ` : ''}
               </div>
             ` : ''}
 
             ${report.screenshots.length > 0 ? `
               <div class="screenshots-grid">
                 ${report.screenshots.slice(0, 4).map(screenshot => `
-                  <div class="screenshot-item">
-                    <img src="${API_BASE}/api/screenshots/${screenshot.filename}" alt="${screenshot.label || 'Screenshot'}" loading="lazy">
+                  <div class="screenshot-item" title="${screenshot.label || 'Screenshot'}: ${new Date(screenshot.timestamp).toLocaleString()}">
+                    <img src="${API_BASE}/api/screenshots/${screenshot.filename}?t=${Date.now()}" alt="${screenshot.label || 'Screenshot'}" loading="lazy" onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<div style=\\'padding: 2rem; text-align: center; color: var(--text-secondary); font-size: 0.875rem;\\'>Screenshot not available<br><small>File: ${screenshot.filename}</small></div>'">
+                    ${screenshot.label ? `<div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); padding: 0.5rem; font-size: 0.75rem; color: white; opacity: 0; transition: opacity 0.2s;" class="screenshot-label">${screenshot.label}</div>` : ''}
                   </div>
                 `).join('')}
+                ${report.screenshots.length > 4 ? `
+                  <div style="grid-column: span 1; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 0.875rem;">
+                    +${report.screenshots.length - 4} more
+                  </div>
+                ` : ''}
               </div>
             ` : ''}
           </div>
         `;
       }).join('');
     }
+
+    // Pipeline Animation Logic
+    const steps = document.querySelectorAll('.pipeline-step');
+
+    function resetPipeline() {
+      steps.forEach(step => {
+        step.classList.remove('active', 'completed');
+      });
+    }
+
+
+    // Toggle pipeline visibility
+    document.getElementById('toggle-pipeline')?.addEventListener('click', function() {
+      const pipeline = document.getElementById('pipeline-demo');
+      if (pipeline.style.display === 'none') {
+        pipeline.style.display = 'block';
+        this.textContent = 'Hide';
+      } else {
+        pipeline.style.display = 'none';
+        this.textContent = 'Show';
+      }
+    });
+
+
+    // Pipeline is hidden by default, shown when test starts
+    const pipelineDemo = document.getElementById('pipeline-demo');
+
+    // Test Runner Functionality
+    const gameUrlInput = document.getElementById('game-url-input');
+    const runTestBtn = document.getElementById('run-test-btn');
+    const testStatus = document.getElementById('test-status');
+    let testPollInterval = null;
+
+    async function runTest() {
+      const gameUrl = gameUrlInput?.value?.trim();
+      
+      if (!gameUrl) {
+        showTestStatus('Please enter a game URL', 'error');
+        return;
+      }
+
+      // Validate URL
+      try {
+        new URL(gameUrl);
+      } catch {
+        showTestStatus('Invalid URL format. Please enter a valid URL (e.g., https://play2048.co/)', 'error');
+        return;
+      }
+
+      // Disable button and show loading
+      if (runTestBtn) {
+        runTestBtn.disabled = true;
+        runTestBtn.querySelector('.btn-text').textContent = 'Testing...';
+        runTestBtn.querySelector('.btn-spinner').style.display = 'inline';
+      }
+
+      // Store game URL for browser simulation BEFORE starting animation
+      currentGameUrl = gameUrl;
+      
+      // Don't show text status - animation will show progress
+      if (testStatus) {
+        testStatus.style.display = 'none';
+      }
+
+      try {
+        // Start animation FIRST so browser shows URL immediately
+        startTestAnimation();
+        
+        const response = await fetch(`${API_BASE}/api/test`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ gameUrl }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to start test');
+        }
+
+        // Start polling for completion (animation already started)
+        startPolling();
+
+      } catch (error) {
+        showTestStatus(`Error: ${error.message}`, 'error');
+        if (runTestBtn) {
+          runTestBtn.disabled = false;
+          runTestBtn.querySelector('.btn-text').textContent = 'Run Test';
+          runTestBtn.querySelector('.btn-spinner').style.display = 'none';
+        }
+      }
+    }
+
+    function showTestStatus(message, type) {
+      if (testStatus) {
+        testStatus.style.display = 'block';
+        testStatus.className = `test-status ${type}`;
+        testStatus.innerHTML = message;
+      }
+    }
+
+    let testAnimationInterval = null;
+
+    let currentGameUrl = '';
+
+    function startTestAnimation() {
+      // Reset pipeline
+      resetPipeline();
+      
+      // Hide text status
+      if (testStatus) {
+        testStatus.style.display = 'none';
+      }
+      
+      // Show browser simulation
+      const browserSim = document.getElementById('browser-simulation');
+      if (browserSim) {
+        browserSim.style.display = 'block';
+        // Initialize browser window - show actual game URL immediately
+        showBrowserState('Opening browser...');
+        // Use the stored game URL or show loading state
+        if (currentGameUrl) {
+          updateBrowserUrl(currentGameUrl);
+          showBrowserLoading();
+        } else {
+          updateBrowserUrl('about:blank');
+          showBrowserLoading();
+        }
+      }
+      
+      // Show pipeline animation
+      if (pipelineDemo) {
+        pipelineDemo.style.display = 'block';
+        // Smooth scroll to show the animation
+        setTimeout(() => {
+          browserSim?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 100);
+      }
+      
+      // Start with first step (load game) - will update based on real test phases
+      steps[0].classList.add('active');
+      
+      // Animation updates automatically via polling based on actual test phase
+    }
+
+    function showBrowserState(message) {
+      const statusEl = document.getElementById('browser-status');
+      if (statusEl) {
+        statusEl.textContent = message;
+        statusEl.className = 'browser-status loading';
+      }
+    }
+
+    function updateBrowserUrl(url) {
+      const urlEl = document.getElementById('browser-url');
+      if (urlEl) {
+        urlEl.textContent = url;
+        currentGameUrl = url;
+      }
+    }
+
+    function showBrowserLoading() {
+      const pageEl = document.getElementById('browser-page');
+      if (pageEl) {
+        const urlToShow = currentGameUrl || 'game';
+        pageEl.innerHTML = `
+          <div class="browser-loading">
+            <div class="spinner-small"></div>
+            <p>Loading ${urlToShow}...</p>
+            <p style="margin-top: 1rem; font-size: 0.75rem; color: #999;">Please wait...</p>
+          </div>
+        `;
+      }
+    }
+
+    function showBrowserGame(message = 'Game is running...') {
+      const pageEl = document.getElementById('browser-page');
+      if (pageEl) {
+        pageEl.innerHTML = `
+          <div class="browser-game-content">
+            <h2>Game Loaded</h2>
+            <p>${message}</p>
+            <div style="margin-top: 2rem; padding: 2rem; background: #f5f5f5; border-radius: 8px;">
+              <p style="color: #666; font-size: 0.875rem;">Simulating gameplay interactions...</p>
+            </div>
+          </div>
+        `;
+      }
+      
+      const statusEl = document.getElementById('browser-status');
+      if (statusEl) {
+        statusEl.textContent = 'Game running';
+        statusEl.className = 'browser-status';
+      }
+    }
+
+    function showBrowserError(errorMessage) {
+      const pageEl = document.getElementById('browser-page');
+      if (pageEl) {
+        pageEl.innerHTML = `
+          <div class="browser-game-content" style="color: #d32f2f;">
+            <h2 style="color: #d32f2f;">Error Loading Game</h2>
+            <p style="color: #666; margin-top: 1rem;">${errorMessage || 'Failed to load game. Please check the URL and try again.'}</p>
+            <div style="margin-top: 2rem; padding: 1.5rem; background: #ffebee; border: 1px solid #ef5350; border-radius: 8px;">
+              <p style="color: #c62828; font-size: 0.875rem; margin: 0;">
+                <strong>Possible causes:</strong><br>
+                • Invalid game URL<br>
+                • Game requires user interaction before loading<br>
+                • Network connectivity issues<br>
+                • Browser automation service unavailable
+              </p>
+            </div>
+          </div>
+        `;
+      }
+      
+      const statusEl = document.getElementById('browser-status');
+      if (statusEl) {
+        statusEl.textContent = errorMessage || 'Error occurred';
+        statusEl.className = 'browser-status error';
+      }
+    }
+
+    function hideBrowserSimulation() {
+      const browserSim = document.getElementById('browser-simulation');
+      if (browserSim) {
+        browserSim.style.display = 'none';
+      }
+    }
+
+    function stopTestAnimation() {
+      // Clear phase message interval
+      if (phaseMessageInterval) {
+        clearInterval(phaseMessageInterval);
+        phaseMessageInterval = null;
+      }
+      
+      // Hide all status messages
+      steps.forEach(step => {
+        const statusEl = step.querySelector('.step-status');
+        if (statusEl) {
+          statusEl.style.display = 'none';
+        }
+      });
+    }
+
+    // Phase status messages
+    const phaseMessages = {
+      'load': ['Opening browser...', 'Creating browser session...', 'Navigating to game URL...', 'Waiting for game to load...'],
+      'capture': ['Initializing capture...', 'Taking initial screenshot...', 'Capturing console logs...', 'Saving evidence...'],
+      'interact': ['Detecting UI elements...', 'Clicking start button...', 'Simulating gameplay...', 'Capturing gameplay screenshots...'],
+      'analyze': ['Loading screenshots...', 'Sending to GPT-4 Vision...', 'Analyzing playability...', 'Processing results...'],
+      'report': ['Generating report...', 'Calculating scores...', 'Categorizing issues...', 'Saving report file...'],
+      'complete': ['Test completed successfully!', '', '', '']
+    };
+
+    let currentPhaseMessageIndex = 0;
+    let phaseMessageInterval = null;
+
+    function updateAnimationForPhase(phase) {
+      // Map backend phases to animation steps
+      const phaseMap = {
+        'load': 0,        // Step 1: Load Game
+        'capture': 1,    // Step 2: Capture Evidence
+        'interact': 2,   // Step 3: Interact
+        'analyze': 3,    // Step 4: AI Analysis
+        'report': 4,     // Step 5: Generate Report
+        'complete': 4,   // Step 5: Complete
+        'error': 4       // On error, show up to last step
+      };
+
+      const stepIndex = phaseMap[phase];
+      
+      // Update browser simulation based on phase
+      if (phase === 'load') {
+        showBrowserState('Navigating to game URL...');
+        // Ensure URL is set if not already
+        if (currentGameUrl && currentGameUrl !== 'about:blank') {
+          updateBrowserUrl(currentGameUrl);
+        }
+        // Show loading state with proper URL
+        showBrowserLoading();
+        
+        // Simulate page load progress
+        setTimeout(() => {
+          if (currentGameUrl && currentGameUrl !== 'about:blank') {
+            const pageEl = document.getElementById('browser-page');
+            if (pageEl) {
+              pageEl.innerHTML = `
+                <div class="browser-loading">
+                  <div class="spinner-small"></div>
+                  <p>Loading ${currentGameUrl}...</p>
+                  <p style="margin-top: 1rem; font-size: 0.75rem; color: #999;">Establishing connection...</p>
+                </div>
+              `;
+            }
+          }
+        }, 1000);
+      } else if (phase === 'capture') {
+        showBrowserState('Capturing screenshots...');
+        showBrowserGame('Game loaded successfully. Capturing evidence...');
+      } else if (phase === 'interact') {
+        showBrowserState('Interacting with game...');
+        showBrowserGame('Simulating gameplay interactions...');
+        
+        // Add visual indicators of interaction
+        setTimeout(() => {
+          const pageEl = document.getElementById('browser-page');
+          if (pageEl && pageEl.innerHTML.includes('Simulating gameplay')) {
+            const content = pageEl.querySelector('.browser-game-content');
+            if (content) {
+              content.innerHTML = `
+                <h2>Game Loaded</h2>
+                <p>Simulating gameplay interactions...</p>
+                <div style="margin-top: 2rem; padding: 2rem; background: #f5f5f5; border-radius: 8px;">
+                  <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 1rem;">
+                    <div style="width: 40px; height: 40px; background: #2196F3; border-radius: 8px; animation: pulse 2s infinite;"></div>
+                    <div style="width: 40px; height: 40px; background: #4CAF50; border-radius: 8px; animation: pulse 2s infinite; animation-delay: 0.3s;"></div>
+                    <div style="width: 40px; height: 40px; background: #FF9800; border-radius: 8px; animation: pulse 2s infinite; animation-delay: 0.6s;"></div>
+                  </div>
+                  <p style="color: #666; font-size: 0.875rem; margin: 0;">Detecting UI elements and simulating user interactions...</p>
+                </div>
+              `;
+            }
+          }
+        }, 500);
+      } else if (phase === 'analyze') {
+        showBrowserState('Analyzing with AI...');
+        // Keep game visible during analysis
+        showBrowserGame('Processing captured evidence with GPT-4 Vision...');
+      } else if (phase === 'report') {
+        showBrowserState('Generating report...');
+        // Keep game visible during report generation
+        showBrowserGame('Generating test report...');
+      } else if (phase === 'error' || phase === 'failed') {
+        showBrowserError('Test failed during execution. Check results below for details.');
+      } else if (phase === 'complete') {
+        showBrowserState('Test completed successfully');
+        showBrowserGame('Test completed! Closing browser...');
+        setTimeout(() => {
+          hideBrowserSimulation();
+        }, 3000);
+      } else if (phase === 'idle') {
+        // Reset browser simulation
+        if (currentGameUrl) {
+          updateBrowserUrl(currentGameUrl);
+        } else {
+          updateBrowserUrl('about:blank');
+        }
+        showBrowserLoading();
+      }
+      
+      if (stepIndex !== undefined) {
+        // Clear previous phase message intervals
+        if (phaseMessageInterval) {
+          clearInterval(phaseMessageInterval);
+          phaseMessageInterval = null;
+        }
+
+        // Update animation to show progress up to current phase
+        steps.forEach((step, index) => {
+          const statusEl = step.querySelector('.step-status');
+          
+          step.classList.remove('active');
+          
+          if (index < stepIndex) {
+            // Previous steps are completed
+            step.classList.add('completed');
+            step.classList.remove('active');
+            if (statusEl) {
+              statusEl.style.display = 'none';
+            }
+          } else if (index === stepIndex) {
+            // Current step is active - show real-time status
+            step.classList.add('active');
+            step.classList.remove('completed');
+            
+            // Show status messages for current phase
+            if (statusEl && phaseMessages[phase]) {
+              statusEl.style.display = 'block';
+              currentPhaseMessageIndex = 0;
+              
+              // Update message immediately
+              statusEl.textContent = phaseMessages[phase][currentPhaseMessageIndex] || '';
+              
+              // Rotate through messages every 2-3 seconds
+              phaseMessageInterval = setInterval(() => {
+                currentPhaseMessageIndex++;
+                if (currentPhaseMessageIndex < phaseMessages[phase].length) {
+                  statusEl.textContent = phaseMessages[phase][currentPhaseMessageIndex];
+                } else {
+                  // Loop back or stay on last message
+                  currentPhaseMessageIndex = 0;
+                  statusEl.textContent = phaseMessages[phase][currentPhaseMessageIndex];
+                }
+              }, 2500);
+            }
+          } else {
+            // Future steps are inactive
+            step.classList.remove('completed', 'active');
+            if (statusEl) {
+              statusEl.style.display = 'none';
+            }
+          }
+        });
+      }
+    }
+
+    function startPolling() {
+      // Clear any existing interval
+      if (testPollInterval) {
+        clearInterval(testPollInterval);
+      }
+
+      let pollCount = 0;
+      const maxPolls = 120; // 2 minutes max (120 * 1 second)
+
+      testPollInterval = setInterval(async () => {
+        pollCount++;
+        
+        try {
+          const response = await fetch(`${API_BASE}/api/test/status`);
+          const data = await response.json();
+
+          // Update animation based on current phase (always update during test)
+          // Update immediately on first poll, then continue updating
+          if (data.phase) {
+            updateAnimationForPhase(data.phase);
+            console.log('Phase update:', data.phase, 'Running:', data.running);
+          }
+
+          if (!data.running && pollCount > 5) {
+            // Test completed (successfully or with error)
+            clearInterval(testPollInterval);
+            stopTestAnimation();
+            
+            // Final phase update if we haven't seen it yet
+            if (data.phase) {
+              updateAnimationForPhase(data.phase);
+            }
+            
+            // Complete all pipeline steps
+            stopTestAnimation(); // Clear any intervals
+            steps.forEach(step => {
+              step.classList.remove('active');
+              // Only mark as completed if test succeeded
+              if (data.phase !== 'error' && data.phase !== 'failed') {
+                step.classList.add('completed');
+              }
+              const statusEl = step.querySelector('.step-status');
+              if (statusEl) {
+                statusEl.style.display = 'none';
+              }
+            });
+            
+            // Show final browser state before hiding
+            const hasError = data.phase === 'error' || data.phase === 'failed' || data.error;
+            if (hasError) {
+              showBrowserError(data.error || 'Test failed. Check results below for details.');
+              // Keep browser visible for errors so user can see what happened
+              setTimeout(() => {
+                hideBrowserSimulation();
+              }, 5000);
+              showTestStatus('Test failed. See details below.', 'error');
+            } else {
+              // Hide browser simulation after showing completion
+              setTimeout(() => {
+                hideBrowserSimulation();
+              }, 3000);
+              showTestStatus('Test completed! Refreshing results...', 'success');
+            }
+            
+            // Refresh reports after a short delay
+            setTimeout(async () => {
+              const reports = await fetchReports();
+              renderStats(reports);
+              renderReports(reports);
+              showTestStatus('Results updated! Scroll down to see the test report.', 'success');
+            }, 2000);
+
+            // Reset button
+            if (runTestBtn) {
+              runTestBtn.disabled = false;
+              runTestBtn.querySelector('.btn-text').textContent = 'Run Test';
+              runTestBtn.querySelector('.btn-spinner').style.display = 'none';
+            }
+          } else if (data.running) {
+            // Update animation based on actual test phase (if available)
+            if (data.phase) {
+              updateAnimationForPhase(data.phase);
+            } else {
+              // Fallback: show first step if phase not available yet
+              if (pollCount === 1) {
+                updateAnimationForPhase('load');
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Polling error:', error);
+        }
+
+        if (pollCount >= maxPolls) {
+          clearInterval(testPollInterval);
+          stopTestAnimation();
+          showTestStatus('Test is taking longer than expected. Check reports below.', 'running');
+          if (runTestBtn) {
+            runTestBtn.disabled = false;
+            runTestBtn.querySelector('.btn-text').textContent = 'Run Test';
+            runTestBtn.querySelector('.btn-spinner').style.display = 'none';
+          }
+        }
+      }, 1000);
+    }
+
+    // Event listeners
+    runTestBtn?.addEventListener('click', runTest);
+    gameUrlInput?.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        runTest();
+      }
+    });
+
+    // Pre-fill with example URL on focus
+    gameUrlInput?.addEventListener('focus', function() {
+      if (!this.value) {
+        this.placeholder = 'https://play2048.co/';
+      }
+    });
 
     async function loadDashboard() {
       const reportsContainer = document.getElementById('reports');

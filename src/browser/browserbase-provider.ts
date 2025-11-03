@@ -3,6 +3,7 @@
  */
 
 import { Browserbase } from '@browserbasehq/sdk';
+import { chromium } from 'playwright-core';
 import type {
   BrowserProvider,
   BrowserSession,
@@ -25,113 +26,234 @@ export class BrowserbaseProvider implements BrowserProvider {
   }
 
   async createSession(options: BrowserOptions = {}): Promise<BrowserSession> {
-    // Browserbase SDK API may vary - use any type for flexibility
-    const session = await (this.client as any).sessions?.create?.({
-      projectId: process.env.BROWSERBASE_PROJECT_ID,
-    }) || await (this.client as any).createSession?.({
-      projectId: process.env.BROWSERBASE_PROJECT_ID,
-    });
+    try {
+      // Browserbase SDK createSession method
+      const session = await this.client.createSession({
+        projectId: process.env.BROWSERBASE_PROJECT_ID || undefined,
+      });
 
-    if (!session || !session.id) {
-      throw new Error('Failed to create browser session');
+      if (!session) {
+        console.error('Browserbase createSession returned null/undefined');
+        throw new Error('Failed to create browser session: API returned null/undefined');
+      }
+
+      // Log session structure for debugging
+      console.log('Session response keys:', Object.keys(session));
+      console.log('Session ID:', session.id);
+      console.log('Session connectUrl:', session.connectUrl);
+      console.log('Session wsUrl:', (session as any).wsUrl);
+
+      const sessionId = session.id || (session as any).sessionId || (session as any).session_id;
+      
+      if (!sessionId) {
+        console.error('Session object structure:', JSON.stringify(session, null, 2));
+        throw new Error(`Failed to create browser session: No session ID found. Response keys: ${Object.keys(session).join(', ')}`);
+      }
+
+      // Store connectUrl if provided in session response
+      const connectUrl = session.connectUrl || (session as any).wsUrl || (session as any).connect_url || null;
+
+      console.log(`Browserbase session created: ${sessionId}`);
+
+      return new BrowserbaseSession(this.client, sessionId, connectUrl, options);
+    } catch (error) {
+      console.error('Browserbase createSession error:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorDetails = error instanceof Error && 'response' in error 
+        ? JSON.stringify((error as any).response, null, 2) 
+        : '';
+      
+      throw new Error(
+        `Failed to create browser session: ${errorMessage}${errorDetails ? '\nDetails: ' + errorDetails : ''}\n` +
+        `Please verify:\n` +
+        `1. BROWSERBASE_API_KEY is set correctly in .env\n` +
+        `2. Your Browserbase account is active\n` +
+        `3. You have available browser hours/quota`
+      );
     }
-
-    const sessionId = session.id;
-
-    return new BrowserbaseSession(this.client, sessionId, options);
   }
 }
 
 class BrowserbaseSession implements BrowserSession {
+  private currentUrl: string = 'about:blank';
+  private browser: any = null;
+  private page: any = null;
+  private cdpSession: any = null;
+  private connectUrl: string | null = null;
+  
   constructor(
-    private client: any,
+    private client: Browserbase,
     public sessionId: string,
+    connectUrl: string | null,
     private options: BrowserOptions
-  ) {}
+  ) {
+    this.connectUrl = connectUrl;
+  }
+  
+  private async ensureCDPConnection(): Promise<void> {
+    if (this.page && this.cdpSession) {
+      return; // Already connected
+    }
+    
+    try {
+      // If we don't have connectUrl yet, try to get it
+      if (!this.connectUrl) {
+        // Method 1: Try getDebugConnectionURLs
+        try {
+          const debugUrls = await this.client.getDebugConnectionURLs(this.sessionId);
+          this.connectUrl = debugUrls?.wsUrl || null;
+        } catch (err1) {
+          console.warn('getDebugConnectionURLs failed:', err1);
+        }
+        
+        // Method 2: Try sessions.get
+        if (!this.connectUrl) {
+          try {
+            const sessionInfo = await (this.client as any).sessions?.get?.(this.sessionId);
+            this.connectUrl = sessionInfo?.connectUrl || sessionInfo?.wsUrl || null;
+          } catch (err2) {
+            console.warn('sessions.get failed:', err2);
+          }
+        }
+        
+        // Method 3: Try sessions.retrieve
+        if (!this.connectUrl) {
+          try {
+            const sessionInfo = await (this.client as any).sessions?.retrieve?.(this.sessionId);
+            this.connectUrl = sessionInfo?.connectUrl || sessionInfo?.wsUrl || null;
+          } catch (err3) {
+            console.warn('sessions.retrieve failed:', err3);
+          }
+        }
+      }
+      
+      if (!this.connectUrl) {
+        throw new Error('Could not get Browserbase CDP connection URL. Make sure the session is active.');
+      }
+      
+      console.log(`Connecting to Browserbase CDP at: ${this.connectUrl.substring(0, 50)}...`);
+      
+      // Connect to Browserbase via CDP
+      this.browser = await chromium.connectOverCDP(this.connectUrl, {
+        timeout: 30000,
+      });
+      
+      const contexts = this.browser.contexts();
+      if (contexts.length === 0) {
+        throw new Error('No browser contexts available after CDP connection');
+      }
+      
+      const defaultContext = contexts[0];
+      const pages = defaultContext.pages();
+      this.page = pages.length > 0 ? pages[0] : await defaultContext.newPage();
+      
+      // Create CDP session for faster operations
+      this.cdpSession = await defaultContext.newCDPSession(this.page);
+      
+      console.log('CDP connection established successfully');
+    } catch (error) {
+      console.error('CDP connection failed:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`CDP connection failed: ${errorMsg}. Please check your Browserbase API key and session status.`);
+    }
+  }
 
   async navigate(url: string): Promise<void> {
-    // Browserbase SDK navigation - use type assertion for flexibility
-    const sessions = (this.client as any).sessions;
+    // Store current URL
+    this.currentUrl = url;
+    
     try {
-      if (sessions?.navigate) {
-        await sessions.navigate(this.sessionId, { url });
-      } else if (sessions?.updateUrl) {
-        await sessions.updateUrl(this.sessionId, url);
+      // Ensure CDP connection
+      await this.ensureCDPConnection();
+      
+      // Navigate using Playwright
+      if (this.page) {
+        await this.page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+        await this.wait(1000); // Additional wait for page to settle
       } else {
-        // Fallback: use evaluate
-        await this.evaluate(`window.location.href = '${url}'`);
+        // Fallback: try Browserbase SDK method
+        await this.client.loadURL(url, { sessionId: this.sessionId });
+        await this.wait(2000);
       }
     } catch (error) {
-      // Fallback: try evaluate
-      await this.evaluate(`window.location.href = '${url}'`);
+      console.warn('Navigation warning:', error instanceof Error ? error.message : String(error));
+      // Continue anyway - page might still load
+      await this.wait(2000);
     }
-    // Wait for navigation to complete
-    await this.wait(2000);
   }
 
   async screenshot(): Promise<Buffer> {
     try {
-      const sessions = (this.client as any).sessions;
-      const response = await sessions?.screenshot?.(this.sessionId) || 
-                       await sessions?.getScreenshot?.(this.sessionId);
+      // Ensure CDP connection
+      await this.ensureCDPConnection();
       
-      // Browserbase may return base64 or buffer
-      if (typeof response === 'string') {
-        return Buffer.from(response, 'base64');
+      if (!this.cdpSession) {
+        throw new Error('CDP session not available');
       }
-      if (response?.screenshot) {
-        if (typeof response.screenshot === 'string') {
-          return Buffer.from(response.screenshot, 'base64');
-        }
-        return Buffer.from(response.screenshot);
+      
+      // Use CDP to capture screenshot (recommended by Browserbase)
+      const result = await this.cdpSession.send('Page.captureScreenshot', {
+        format: 'png',
+        quality: 90,
+        fullPage: false,
+      });
+      
+      if (!result || !result.data) {
+        throw new Error('CDP screenshot returned no data');
       }
-      // If response is already a buffer
-      return Buffer.isBuffer(response) ? response : Buffer.from(response);
+      
+      // Convert base64 to buffer
+      const buffer = Buffer.from(result.data, 'base64');
+      return buffer;
     } catch (error) {
-      throw new Error(`Screenshot failed: ${error instanceof Error ? error.message : String(error)}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`Screenshot failed for session ${this.sessionId}:`, errorMessage);
+      throw new Error(`Screenshot failed: ${errorMessage}`);
     }
   }
 
   async click(selector: string): Promise<void> {
-    // Escape selector to prevent injection issues
-    const escapedSelector = selector.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    const sessions = (this.client as any).sessions;
-    await sessions?.evaluate?.(this.sessionId, {
-      script: `
-        (function() {
-          const selector = '${escapedSelector}';
-          const element = document.querySelector(selector);
-          if (element) {
-            element.click();
-            return true;
-          } else {
-            throw new Error('Element not found: ' + selector);
-          }
-        })()
-      `,
-    });
-    await this.wait(500); // Small delay after click
+    try {
+      await this.ensureCDPConnection();
+      
+      if (this.page) {
+        await this.page.click(selector, { timeout: 5000 });
+        await this.wait(300); // Small delay after click
+      } else {
+        throw new Error('Page not available for click');
+      }
+    } catch (error) {
+      console.warn(`Click failed on '${selector}':`, error instanceof Error ? error.message : String(error));
+      await this.wait(500); // Delay anyway
+    }
   }
 
   async keypress(key: string): Promise<void> {
-    const keyCode = this.getKeyCode(key);
-    // Escape key name to prevent injection
-    const escapedKey = key.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    const escapedCode = keyCode.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    const sessions = (this.client as any).sessions;
-    await sessions?.evaluate?.(this.sessionId, {
-      script: `
-        (function() {
-          const key = '${escapedKey}';
-          const code = '${escapedCode}';
-          const event = new KeyboardEvent('keydown', { key: key, code: code, bubbles: true });
-          document.dispatchEvent(event);
-          const event2 = new KeyboardEvent('keyup', { key: key, code: code, bubbles: true });
-          document.dispatchEvent(event2);
-        })()
-      `,
-    });
-    await this.wait(100);
+    try {
+      await this.ensureCDPConnection();
+      
+      if (this.page) {
+        // Map common keys
+        const keyMap: Record<string, string> = {
+          'ArrowUp': 'ArrowUp',
+          'ArrowDown': 'ArrowDown',
+          'ArrowLeft': 'ArrowLeft',
+          'ArrowRight': 'ArrowRight',
+          'Space': ' ',
+          'Enter': 'Enter',
+          'Escape': 'Escape',
+        };
+        
+        const keyToPress = keyMap[key] || key;
+        await this.page.keyboard.press(keyToPress);
+        await this.wait(100);
+      } else {
+        throw new Error('Page not available for keypress');
+      }
+    } catch (error) {
+      console.warn(`Keypress failed for '${key}':`, error instanceof Error ? error.message : String(error));
+      await this.wait(100);
+    }
   }
 
   async wait(ms: number): Promise<void> {
@@ -139,16 +261,19 @@ class BrowserbaseSession implements BrowserSession {
   }
 
   async evaluate<T>(script: string): Promise<T> {
-    const sessions = (this.client as any).sessions;
-    const result = await sessions?.evaluate?.(this.sessionId, {
-      script,
-    }) || await sessions?.executeScript?.(this.sessionId, script);
-    
-    if (!result) {
-      throw new Error('Failed to evaluate script');
+    try {
+      await this.ensureCDPConnection();
+      
+      if (this.page) {
+        const result = await this.page.evaluate(script);
+        return result as T;
+      } else {
+        throw new Error('Page not available for evaluation');
+      }
+    } catch (error) {
+      console.warn('Script evaluation failed:', error instanceof Error ? error.message : String(error));
+      return undefined as T;
     }
-    
-    return (result.result ?? result) as T;
   }
 
   async getConsoleLogs(): Promise<ConsoleLog[]> {
@@ -190,9 +315,15 @@ class BrowserbaseSession implements BrowserSession {
               addLog('info', args);
             };
           }
-          return window.__qaConsoleLogs;
+          return window.__qaConsoleLogs || [];
         })()
       `);
+      
+      // Handle undefined or null logs
+      if (!logs || !Array.isArray(logs)) {
+        console.warn('Console logs evaluation returned invalid result:', typeof logs);
+        return [];
+      }
       
       return logs.map(log => ({
         level: log.level as 'log' | 'warn' | 'error' | 'info',
@@ -206,9 +337,23 @@ class BrowserbaseSession implements BrowserSession {
   }
 
   async close(): Promise<void> {
-    const sessions = (this.client as any).sessions;
-    await sessions?.delete?.(this.sessionId) || 
-          await sessions?.close?.(this.sessionId);
+    // Clean up CDP connections
+    try {
+      if (this.cdpSession) {
+        await this.cdpSession.detach();
+        this.cdpSession = null;
+      }
+      if (this.browser) {
+        await this.browser.close();
+        this.browser = null;
+      }
+      this.page = null;
+    } catch (error) {
+      console.warn('Error closing CDP connections:', error);
+    }
+    
+    // Browserbase SDK completeSession method
+    await this.client.completeSession(this.sessionId);
   }
 
   private getKeyCode(key: string): string {
