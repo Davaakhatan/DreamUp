@@ -14,6 +14,10 @@
     "cli": "tsx src/cli.ts",
     "dashboard": "tsx src/dashboard/server.ts",
     "test": "jest",
+    "test:auto": "tsx test-automated.ts",
+    "test:quick": "tsx test-quick.ts",
+    "test:demo": "tsx test-demo.ts",
+    "test:input-schema": "tsx test-input-schema.ts",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\""
   },
@@ -32,6 +36,7 @@
     "express": "^4.18.2",
     "openai": "^4.20.1",
     "ora": "^7.0.1",
+    "playwright": "^1.56.1",
     "playwright-core": "^1.56.1",
     "zod": "^3.22.4"
   },

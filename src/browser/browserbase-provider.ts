@@ -45,6 +45,28 @@ export class BrowserbaseProvider implements BrowserProvider {
 
       const sessionId = session.id || (session as any).sessionId || (session as any).session_id;
       
+      // Check if this is an error response (e.g., 429 Too Many Requests)
+      if ('statusCode' in session && 'error' in session) {
+        const errorResponse = session as { statusCode: number; error: string; message: string };
+        if (errorResponse.statusCode === 429) {
+          throw new Error(
+            `Browserbase session limit exceeded: ${errorResponse.message}\n` +
+            `Please close any existing browser sessions or wait a few moments before retrying.`
+          );
+        }
+        if (errorResponse.statusCode === 402) {
+          throw new Error(
+            `Browserbase quota limit reached: ${errorResponse.message}\n` +
+            `Your free plan browser minutes have been exhausted.\n` +
+            `Please upgrade your account at https://browserbase.com/plans or wait for quota reset.`
+          );
+        }
+        throw new Error(
+          `Browserbase API error (${errorResponse.statusCode}): ${errorResponse.error}\n` +
+          `Message: ${errorResponse.message}`
+        );
+      }
+
       if (!sessionId) {
         console.error('Session object structure:', JSON.stringify(session, null, 2));
         throw new Error(`Failed to create browser session: No session ID found. Response keys: ${Object.keys(session).join(', ')}`);
@@ -59,6 +81,23 @@ export class BrowserbaseProvider implements BrowserProvider {
     } catch (error) {
       console.error('Browserbase createSession error:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Check for network/timeout errors
+      const isNetworkError = errorMessage.includes('fetch failed') || 
+                             errorMessage.includes('timeout') ||
+                             errorMessage.includes('UND_ERR_CONNECT_TIMEOUT') ||
+                             errorMessage.includes('ECONNREFUSED');
+      
+      if (isNetworkError) {
+        throw new Error(
+          `Network error connecting to Browserbase: ${errorMessage}\n` +
+          `This is likely a temporary network issue. Please:\n` +
+          `1. Check your internet connection\n` +
+          `2. Wait a few moments and try again\n` +
+          `3. Verify Browserbase service is accessible`
+        );
+      }
+      
       const errorDetails = error instanceof Error && 'response' in error 
         ? JSON.stringify((error as any).response, null, 2) 
         : '';
@@ -166,19 +205,43 @@ class BrowserbaseSession implements BrowserSession {
       // Ensure CDP connection
       await this.ensureCDPConnection();
       
-      // Navigate using Playwright
+      // Navigate using Playwright with more lenient settings
+      // Use 'domcontentloaded' instead of 'networkidle' - games often have ads/scripts that never finish loading
       if (this.page) {
-        await this.page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
-        await this.wait(1000); // Additional wait for page to settle
+        try {
+          // Try with domcontentloaded first (faster, more reliable)
+          await this.page.goto(url, { 
+            waitUntil: 'domcontentloaded', 
+            timeout: 45000 // Increased timeout to 45s
+          });
+          await this.wait(2000); // Wait for game to initialize
+        } catch (timeoutError) {
+          // If domcontentloaded times out, try with commit (even more lenient)
+          console.warn('Navigation timeout with domcontentloaded, trying commit...');
+          try {
+            await this.page.goto(url, { 
+              waitUntil: 'commit', 
+              timeout: 60000 // 60s for commit
+            });
+            await this.wait(3000); // Longer wait if we had to use commit
+          } catch (commitError) {
+            // Last resort: navigate without waiting
+            console.warn('Navigation failed, attempting without wait...');
+            await this.page.goto(url, { timeout: 10000 }).catch(() => {
+              // Ignore final error - page might still be usable
+            });
+            await this.wait(3000);
+          }
+        }
       } else {
         // Fallback: try Browserbase SDK method
         await this.client.loadURL(url, { sessionId: this.sessionId });
-        await this.wait(2000);
+        await this.wait(3000);
       }
     } catch (error) {
       console.warn('Navigation warning:', error instanceof Error ? error.message : String(error));
       // Continue anyway - page might still load
-      await this.wait(2000);
+      await this.wait(3000);
     }
   }
 
@@ -189,6 +252,73 @@ class BrowserbaseSession implements BrowserSession {
       
       if (!this.cdpSession) {
         throw new Error('CDP session not available');
+      }
+      
+      // CRITICAL: Force a repaint/reflow to ensure all tiles/animations are rendered
+      // This fixes the issue where tiles exist in DOM but aren't visible in screenshots
+      if (this.page) {
+        try {
+          // Force layout recalculation and repaint, and ensure tiles are visible
+          await this.page.evaluate(`
+            (() => {
+              // First, check if tiles exist but are hidden, and force them visible
+              const tileSelectors = [
+                '[class*="tile"]',
+                '[class*="cell"]',
+                '[class*="grid-cell"]',
+                '.tile-container > *',
+              ];
+              
+              for (const selector of tileSelectors) {
+                try {
+                  const elements = document.querySelectorAll(selector);
+                  elements.forEach(el => {
+                    const text = (el.textContent || el.innerText || '').trim();
+                    if (text && text !== '' && text !== '0') {
+                      const style = window.getComputedStyle(el);
+                      if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+                        // Force visibility
+                        (el as HTMLElement).style.display = 'block';
+                        (el as HTMLElement).style.visibility = 'visible';
+                        (el as HTMLElement).style.opacity = '1';
+                        (el as HTMLElement).style.zIndex = '10';
+                      }
+                    }
+                  });
+                } catch (e) {
+                  // Continue
+                }
+              }
+              
+              // Force reflow by accessing layout properties
+              void document.body.offsetHeight;
+              
+              // Wait for CSS animations/transitions to complete
+              // Most games use transitions for tile animations (0.1s - 0.3s)
+              return new Promise(resolve => {
+                // Check if any animations are running
+                const animations = document.getAnimations();
+                if (animations.length > 0) {
+                  // Wait for the longest animation to complete
+                  const maxDuration = Math.max(...Array.from(animations).map(a => {
+                    const timing = a.effect?.getTiming();
+                    return (timing?.duration || 0) * 1000;
+                  }));
+                  setTimeout(resolve, Math.max(maxDuration + 100, 300)); // Wait animation + 100ms buffer, min 300ms
+                } else {
+                  // No animations - wait a bit for any pending renders
+                  setTimeout(resolve, 300);
+                }
+              });
+            })()
+          `);
+        } catch (e) {
+          // If evaluation fails, just wait a bit
+          await this.wait(300);
+        }
+      } else {
+        // Fallback: just wait
+        await this.wait(300);
       }
       
       // Use CDP to capture screenshot (recommended by Browserbase)
@@ -216,8 +346,111 @@ class BrowserbaseSession implements BrowserSession {
     try {
       await this.ensureCDPConnection();
       
+      // CRITICAL: Ensure page is focused before clicking
       if (this.page) {
-        await this.page.click(selector, { timeout: 5000 });
+        await this.page.bringToFront();
+        await this.page.evaluate(`
+          (() => {
+            window.focus();
+            document.body.focus();
+          })()
+        `);
+        await this.wait(100);
+      }
+      
+      if (this.page) {
+        // Try Playwright click first
+        try {
+          await this.page.click(selector, { timeout: 5000, force: true });
+        } catch (clickError) {
+          // If Playwright click fails, try CDP click
+          if (this.cdpSession) {
+            try {
+              const elementInfo = await this.page.evaluate((sel: string) => {
+                // @ts-ignore - DOM types available in browser context
+                const element = document.querySelector(sel);
+                if (!element) return null;
+                // @ts-ignore
+                const rect = element.getBoundingClientRect();
+                return {
+                  x: rect.left + rect.width / 2,
+                  y: rect.top + rect.height / 2,
+                };
+              }, selector);
+              
+              if (elementInfo) {
+                // Use CDP to send mouse events
+                await this.cdpSession.send('Input.dispatchMouseEvent', {
+                  type: 'mousePressed',
+                  x: elementInfo.x,
+                  y: elementInfo.y,
+                  button: 'left',
+                  clickCount: 1,
+                });
+                await this.wait(50);
+                await this.cdpSession.send('Input.dispatchMouseEvent', {
+                  type: 'mouseReleased',
+                  x: elementInfo.x,
+                  y: elementInfo.y,
+                  button: 'left',
+                  clickCount: 1,
+                });
+                await this.wait(300);
+              } else {
+                throw new Error('Element not found');
+              }
+            } catch (cdpError) {
+              // Final fallback: JavaScript click
+              const clicked = await this.page.evaluate((sel: string) => {
+                try {
+                  // @ts-ignore - DOM types available in browser context
+                  const element = document.querySelector(sel);
+                  // @ts-ignore
+                  if (element && element.offsetParent !== null) {
+                    // Use multiple methods to ensure click works
+                    // @ts-ignore
+                    element.click();
+                    // @ts-ignore
+                    element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                    // @ts-ignore
+                    element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+                    // @ts-ignore
+                    element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+                    return true;
+                  }
+                  return false;
+                } catch (e) {
+                  return false;
+                }
+              }, selector);
+              
+              if (!clicked) {
+                throw new Error(`Element not found or not clickable: ${selector}`);
+              }
+            }
+          } else {
+            // Fallback: JavaScript click
+            const clicked = await this.page.evaluate((sel: string) => {
+              try {
+                // @ts-ignore - DOM types available in browser context
+                const element = document.querySelector(sel);
+                // @ts-ignore
+                if (element && element.offsetParent !== null) {
+                  // @ts-ignore
+                  element.click();
+                  return true;
+                }
+                return false;
+              } catch (e) {
+                return false;
+              }
+            }, selector);
+            
+            if (!clicked) {
+              throw new Error(`Element not found or not clickable: ${selector}`);
+            }
+          }
+        }
         await this.wait(300); // Small delay after click
       } else {
         throw new Error('Page not available for click');
@@ -228,12 +461,153 @@ class BrowserbaseSession implements BrowserSession {
     }
   }
 
+  async clickByText(text: string, options: { exact?: boolean } = {}): Promise<boolean> {
+    try {
+      await this.ensureCDPConnection();
+      
+      if (!this.page) {
+        return false;
+      }
+
+      // Strategy 1: Use Playwright's getByRole with name (most reliable)
+      try {
+        const button = this.page.getByRole('button', { name: new RegExp(text, 'i') });
+        await button.waitFor({ state: 'visible', timeout: 2000 });
+        await button.click({ timeout: 3000, force: false });
+        await this.wait(500);
+        return true;
+      } catch (roleError) {
+        // Continue to next strategy
+      }
+
+      // Strategy 2: Use getByText
+      try {
+        if (options.exact) {
+          const locator = this.page.getByText(text, { exact: true });
+          await locator.waitFor({ state: 'visible', timeout: 2000 });
+          await locator.first().click({ timeout: 3000 });
+        } else {
+          const locator = this.page.getByText(text);
+          await locator.waitFor({ state: 'visible', timeout: 2000 });
+          await locator.first().click({ timeout: 3000 });
+        }
+        await this.wait(500);
+        return true;
+      } catch (getByTextError) {
+        // Continue to next strategy
+      }
+
+      // Strategy 3: Use locator with filter
+      try {
+        const locator = this.page.locator('button').filter({ hasText: text });
+        await locator.waitFor({ state: 'visible', timeout: 2000 });
+        const count = await locator.count();
+        if (count > 0) {
+          await locator.first().click({ timeout: 3000 });
+          await this.wait(500);
+          return true;
+        }
+      } catch (locatorError) {
+        // Continue to fallback
+      }
+
+      // Strategy 4: Try XPath-based locator
+      try {
+        const xpath = `//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '${text.toLowerCase()}')]`;
+        const locator = this.page.locator(xpath);
+        await locator.waitFor({ state: 'visible', timeout: 2000 });
+        await locator.first().click({ timeout: 3000 });
+        await this.wait(500);
+        return true;
+      } catch (xpathError) {
+        // Continue to final fallback
+      }
+
+      // Final fallback: JavaScript click (less reliable but sometimes necessary)
+      // @ts-ignore - DOM types available in browser context
+      const clicked = await this.page.evaluate((targetText: string) => {
+        // @ts-ignore
+        const buttons = Array.from(document.querySelectorAll('button'));
+        // Normalize target text (remove extra whitespace, newlines)
+        const normalizedTarget = targetText.toLowerCase().replace(/\s+/g, ' ').trim();
+        
+        for (const btn of buttons) {
+          // @ts-ignore
+          const btnElement = btn;
+          // @ts-ignore
+          // Normalize button text (remove newlines, extra spaces)
+          const btnText = (btnElement.textContent || btnElement.innerText || '')
+            .replace(/\s+/g, ' ') // Replace all whitespace (including newlines) with single space
+            .trim()
+            .toLowerCase();
+          
+          // @ts-ignore
+          if (btnElement.offsetParent !== null && btnText.includes(normalizedTarget)) {
+            try {
+              // @ts-ignore
+              btnElement.click();
+              return true;
+            } catch (e) {
+              // Try MouseEvent
+              try {
+                // @ts-ignore
+                btnElement.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                return true;
+              } catch (e2) {
+                continue;
+              }
+            }
+          }
+        }
+        return false;
+      }, text);
+      
+      if (clicked) {
+        await this.wait(500);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.warn(`Click by text failed for '${text}':`, error instanceof Error ? error.message : String(error));
+      return false;
+    }
+  }
+
   async keypress(key: string): Promise<void> {
     try {
       await this.ensureCDPConnection();
       
       if (this.page) {
-        // Map common keys
+        // CRITICAL: Ensure page window is active and focused
+        // This is essential for Browserbase remote sessions
+        await this.page.evaluate(`
+          (() => {
+            // Focus the window
+            window.focus();
+            
+            // Focus the document
+            document.body.focus();
+            
+            // Ensure active element is body
+            if (document.activeElement !== document.body) {
+              document.body.focus();
+            }
+            
+            // Trigger a focus event to ensure browser recognizes focus
+            window.dispatchEvent(new Event('focus', { bubbles: true }));
+            document.dispatchEvent(new Event('focus', { bubbles: true }));
+          })()
+        `);
+        
+        // Also use Playwright's focus method
+        await this.page.bringToFront();
+        await this.page.focus('body');
+        
+        // Wait for focus to settle
+        await this.wait(200);
+        
+        // Map common keys to DOM key codes
         const keyMap: Record<string, string> = {
           'ArrowUp': 'ArrowUp',
           'ArrowDown': 'ArrowDown',
@@ -245,8 +619,45 @@ class BrowserbaseSession implements BrowserSession {
         };
         
         const keyToPress = keyMap[key] || key;
-        await this.page.keyboard.press(keyToPress);
-        await this.wait(100);
+        
+        // CRITICAL: Use CDP directly for more reliable keypress in remote sessions
+        // This ensures events are properly sent even if Playwright methods fail
+        if (this.cdpSession) {
+          try {
+            // Send keydown event via CDP
+            await this.cdpSession.send('Input.dispatchKeyEvent', {
+              type: 'keyDown',
+              windowsVirtualKeyCode: this.getKeyCode(keyToPress),
+              code: this.getKeyCodeString(keyToPress),
+              key: keyToPress,
+            });
+            
+            await this.wait(50);
+            
+            // Send keyup event via CDP
+            await this.cdpSession.send('Input.dispatchKeyEvent', {
+              type: 'keyUp',
+              windowsVirtualKeyCode: this.getKeyCode(keyToPress),
+              code: this.getKeyCodeString(keyToPress),
+              key: keyToPress,
+            });
+            
+            await this.wait(100);
+          } catch (cdpError) {
+            // Fallback to Playwright if CDP fails
+            console.warn('CDP keypress failed, falling back to Playwright:', cdpError);
+            await this.page.keyboard.down(keyToPress);
+            await this.wait(50);
+            await this.page.keyboard.up(keyToPress);
+            await this.wait(100);
+          }
+        } else {
+          // Fallback to Playwright if CDP not available
+          await this.page.keyboard.down(keyToPress);
+          await this.wait(50);
+          await this.page.keyboard.up(keyToPress);
+          await this.wait(100);
+        }
       } else {
         throw new Error('Page not available for keypress');
       }
@@ -254,6 +665,38 @@ class BrowserbaseSession implements BrowserSession {
       console.warn(`Keypress failed for '${key}':`, error instanceof Error ? error.message : String(error));
       await this.wait(100);
     }
+  }
+
+  /**
+   * Get Windows virtual key code for a key
+   */
+  private getKeyCode(key: string): number {
+    const keyCodes: Record<string, number> = {
+      'ArrowUp': 38,
+      'ArrowDown': 40,
+      'ArrowLeft': 37,
+      'ArrowRight': 39,
+      ' ': 32, // Space
+      'Enter': 13,
+      'Escape': 27,
+    };
+    return keyCodes[key] || 0;
+  }
+
+  /**
+   * Get key code string for a key
+   */
+  private getKeyCodeString(key: string): string {
+    const keyCodeStrings: Record<string, string> = {
+      'ArrowUp': 'ArrowUp',
+      'ArrowDown': 'ArrowDown',
+      'ArrowLeft': 'ArrowLeft',
+      'ArrowRight': 'ArrowRight',
+      ' ': 'Space',
+      'Enter': 'Enter',
+      'Escape': 'Escape',
+    };
+    return keyCodeStrings[key] || key;
   }
 
   async wait(ms: number): Promise<void> {
@@ -356,17 +799,135 @@ class BrowserbaseSession implements BrowserSession {
     await this.client.completeSession(this.sessionId);
   }
 
-  private getKeyCode(key: string): string {
-    const keyMap: Record<string, string> = {
-      ArrowUp: 'ArrowUp',
-      ArrowDown: 'ArrowDown',
-      ArrowLeft: 'ArrowLeft',
-      ArrowRight: 'ArrowRight',
-      Space: 'Space',
-      Enter: 'Enter',
-      Escape: 'Escape',
-    };
-    return keyMap[key] || key;
+  async switchToIframe(selector?: string): Promise<boolean> {
+    try {
+      await this.ensureCDPConnection();
+      
+      if (!this.page) {
+        return false;
+      }
+      
+      // If selector provided, try to find that iframe
+      if (selector) {
+        const iframe = await this.page.$(selector);
+        if (iframe) {
+          const frame = await iframe.contentFrame();
+          if (frame) {
+            // Switch context to iframe
+            this.page = frame as any;
+            return true;
+          }
+        }
+      }
+      
+      // Otherwise, find the largest iframe (likely the game)
+      const iframes = await this.page.$$('iframe');
+      if (iframes.length === 0) {
+        return false;
+      }
+      
+      // Find the largest iframe
+      let largestIframe = null;
+      let maxArea = 0;
+      
+      for (const iframe of iframes) {
+        const box = await iframe.boundingBox();
+        if (box) {
+          const area = box.width * box.height;
+          if (area > maxArea && area > 400 * 400) { // Only consider substantial iframes
+            maxArea = area;
+            largestIframe = iframe;
+          }
+        }
+      }
+      
+      if (largestIframe) {
+        const frame = await largestIframe.contentFrame();
+        if (frame) {
+          // Switch context to iframe
+          this.page = frame as any;
+          return true;
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.warn('Iframe switching failed:', error);
+      return false;
+    }
+  }
+
+  async switchToMainFrame(): Promise<void> {
+    try {
+      await this.ensureCDPConnection();
+      
+      // Reset to main page context
+      if (this.browser) {
+        const pages = await this.browser.pages();
+        if (pages.length > 0) {
+          this.page = pages[0];
+        }
+      }
+    } catch (error) {
+      console.warn('Switching to main frame failed:', error);
+    }
+  }
+
+  async clickAt(x: number, y: number): Promise<boolean> {
+    try {
+      await this.ensureCDPConnection();
+      
+      // Use CDP to click at coordinates (most reliable for remote sessions)
+      if (this.cdpSession) {
+        try {
+          // Send mouse move to coordinates
+          await this.cdpSession.send('Input.dispatchMouseEvent', {
+            type: 'mouseMoved',
+            x: Math.round(x),
+            y: Math.round(y),
+          });
+          
+          await this.wait(50);
+          
+          // Send mouse pressed
+          await this.cdpSession.send('Input.dispatchMouseEvent', {
+            type: 'mousePressed',
+            x: Math.round(x),
+            y: Math.round(y),
+            button: 'left',
+            clickCount: 1,
+          });
+          
+          await this.wait(50);
+          
+          // Send mouse released
+          await this.cdpSession.send('Input.dispatchMouseEvent', {
+            type: 'mouseReleased',
+            x: Math.round(x),
+            y: Math.round(y),
+            button: 'left',
+            clickCount: 1,
+          });
+          
+          await this.wait(100);
+          return true;
+        } catch (cdpError) {
+          console.warn('CDP clickAt failed, trying Playwright:', cdpError);
+        }
+      }
+      
+      // Fallback to Playwright
+      if (this.page) {
+        await this.page.mouse.click(x, y);
+        await this.wait(100);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.warn(`clickAt failed at (${x}, ${y}):`, error);
+      return false;
+    }
   }
 }
 

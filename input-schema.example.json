@@ -1,0 +1,57 @@
+{
+  "gameId": "example-game-1",
+  "gameName": "Example Platformer Game",
+  "actions": [
+    {
+      "name": "Jump",
+      "description": "Player jumps into the air",
+      "bindings": [
+        { "type": "key", "input": " " },
+        { "type": "key", "input": "w" },
+        { "type": "virtual-button", "input": "#btn-jump" }
+      ]
+    },
+    {
+      "name": "Shoot",
+      "description": "Player shoots a projectile",
+      "bindings": [
+        { "type": "key", "input": "x" },
+        { "type": "mouse", "input": "click" }
+      ]
+    }
+  ],
+  "axes1D": [
+    {
+      "name": "MoveHorizontal",
+      "description": "Horizontal movement (-1 to 1)",
+      "smoothing": 0.15,
+      "bindings": [
+        { "type": "key", "input": "a", "direction": "negative" },
+        { "type": "key", "input": "d", "direction": "positive" },
+        { "type": "key", "input": "ArrowLeft", "direction": "negative" },
+        { "type": "key", "input": "ArrowRight", "direction": "positive" }
+      ]
+    }
+  ],
+  "axes2D": [
+    {
+      "name": "Move",
+      "description": "2D movement vector (normalized)",
+      "smoothing": 0.2,
+      "bindings": [
+        { "type": "key", "input": "w" },
+        { "type": "key", "input": "a" },
+        { "type": "key", "input": "s" },
+        { "type": "key", "input": "d" },
+        { "type": "key", "input": "ArrowUp" },
+        { "type": "key", "input": "ArrowDown" },
+        { "type": "key", "input": "ArrowLeft" },
+        { "type": "key", "input": "ArrowRight" },
+        { "type": "joystick", "input": "#joystick" },
+        { "type": "dpad", "input": "#dpad" }
+      ]
+    }
+  ],
+  "notes": "This is an example input schema matching the DreamUp game engine format. The QA agent will use this to determine which keys to press for gameplay interactions."
+}
+

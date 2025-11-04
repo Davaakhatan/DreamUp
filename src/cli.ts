@@ -54,12 +54,16 @@ loadEnvFile();
 import { Command } from 'commander';
 import { writeFile } from 'fs/promises';
 import { BrowserbaseProvider } from './browser/browserbase-provider.js';
+import { LocalPlaywrightProvider } from './browser/local-provider.js';
 import { EvidenceCapture } from './agent/evidence-capture.js';
 import { Evaluator } from './agent/evaluator.js';
 import { QAAgent } from './agent/qa-agent.js';
 import { loadConfig } from './config/config-loader.js';
 import { CLIUI } from './utils/cli-ui.js';
 import { DashboardServer } from './dashboard/server.js';
+import { parseInputSchema } from './utils/input-schema-parser.js';
+import type { InputSchema } from './types/input-schema.js';
+import { readFile } from 'fs/promises';
 
 const program = new Command();
 
@@ -73,8 +77,9 @@ program
   .description('Test a browser game at the given URL')
   .argument('<game-url>', 'URL of the game to test')
   .option('-c, --config <file>', 'Path to configuration JSON file')
+  .option('-s, --input-schema <file>', 'Path to input schema JSON file (control layout)')
   .option('-o, --output <dir>', 'Output directory for reports and screenshots', './output')
-  .action(async (gameUrl: string, options: { config?: string; output?: string }) => {
+  .action(async (gameUrl: string, options: { config?: string; inputSchema?: string; output?: string }) => {
     CLIUI.banner();
     
     const ui = new CLIUI();
@@ -88,9 +93,40 @@ program
 
       // Initialize browser
       ui.startSpinner('Creating browser session...');
-      const browserProvider = new BrowserbaseProvider();
+      
+      // Use local browser if USE_LOCAL_BROWSER env var is set
+      let browserProvider: any;
+      const useLocal = process.env.USE_LOCAL_BROWSER === 'true';
+      
+      if (useLocal) {
+        browserProvider = new LocalPlaywrightProvider();
+      } else {
+        try {
+          browserProvider = new BrowserbaseProvider();
+        } catch (error) {
+          ui.succeedSpinner('Browserbase not available, using local browser...');
+          browserProvider = new LocalPlaywrightProvider();
+        }
+      }
+      
       const session = await browserProvider.createSession();
       ui.succeedSpinner('Browser session created');
+
+      // Load input schema if provided
+      let parsedInputSchema = undefined;
+      if (options.inputSchema) {
+        ui.startSpinner('Loading input schema...');
+        try {
+          const schemaContent = await readFile(options.inputSchema, 'utf-8');
+          const inputSchema: InputSchema = JSON.parse(schemaContent);
+          parsedInputSchema = parseInputSchema(inputSchema);
+          ui.succeedSpinner(`Input schema loaded: ${parsedInputSchema.metadata.gameName || 'unnamed game'}`);
+        } catch (error) {
+          ui.failSpinner();
+          CLIUI.warning(`Failed to load input schema: ${error instanceof Error ? error.message : String(error)}`);
+          CLIUI.info('Continuing without input schema...');
+        }
+      }
 
       // Initialize components
       ui.startSpinner('Initializing components...');
@@ -99,7 +135,7 @@ program
       ui.succeedSpinner('Components initialized');
 
       // Create agent
-      const agent = new QAAgent(session, config, evidenceCapture, evaluator);
+      const agent = new QAAgent(session, config, evidenceCapture, evaluator, parsedInputSchema);
 
       // Run test
       CLIUI.section('Running Test');

@@ -31,16 +31,65 @@ export class EvidenceCapture {
    */
   async captureScreenshot(
     session: BrowserSession,
-    label?: string
+    label?: string,
+    checkForModals?: () => Promise<boolean>
   ): Promise<ScreenshotInfo> {
+    // Check for and dismiss modals before taking screenshot if handler provided
+    if (checkForModals) {
+      try {
+        console.log(`[Screenshot ${label}] Checking for modals before capture...`);
+        const modalHandled = await checkForModals();
+        if (modalHandled) {
+          console.log(`[Screenshot ${label}] Modal dismissed, waiting for UI to settle...`);
+          await session.wait(1000); // Wait longer for modal to close and UI to settle
+        } else {
+          console.warn(`[Screenshot ${label}] No modal found or modal could not be dismissed`);
+        }
+      } catch (error) {
+        console.warn(`[Screenshot ${label}] Modal check failed:`, error);
+      }
+    }
     try {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const labelSlug = label ? `-${label.replace(/\s+/g, '-')}` : '';
       const filename = `screenshot-${timestamp}${labelSlug}.png`;
       const filepath = join(this.outputDir, 'screenshots', filename);
 
-      const screenshotBuffer = await session.screenshot();
+      // CRITICAL: Wait for animations/transitions to complete before screenshot
+      // This ensures tiles are fully rendered and visible
+      await session.wait(300); // Small wait for any pending renders
+      
+      // Take screenshot with timeout protection (increased timeout for reliability)
+      console.log(`📸 Capturing screenshot: ${label || 'unnamed'}`);
+      let screenshotBuffer: Buffer;
+      try {
+        screenshotBuffer = await Promise.race([
+          session.screenshot(),
+          new Promise<Buffer>((_, reject) => 
+            setTimeout(() => reject(new Error('Screenshot timeout after 15s')), 15000)
+          )
+        ]);
+        console.log(`✓ Screenshot captured (${screenshotBuffer.length} bytes), saving...`);
+      } catch (error) {
+        // If screenshot fails, try a simpler approach without waiting for animations
+        console.warn(`⚠ Screenshot failed, retrying with simpler method...`);
+        try {
+          await session.wait(500); // Short wait
+          screenshotBuffer = await Promise.race([
+            session.screenshot(),
+            new Promise<Buffer>((_, reject) => 
+              setTimeout(() => reject(new Error('Screenshot retry timeout after 10s')), 10000)
+            )
+          ]);
+          console.log(`✓ Screenshot captured on retry (${screenshotBuffer.length} bytes)`);
+        } catch (retryError) {
+          console.error(`❌ Screenshot failed after retry:`, retryError);
+          throw retryError;
+        }
+      }
+      
       await writeFile(filepath, screenshotBuffer);
+      console.log(`✓ Screenshot saved: ${filename}`);
 
       const screenshotInfo: ScreenshotInfo = {
         filename,

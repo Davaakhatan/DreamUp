@@ -9,9 +9,13 @@ export interface BrowserSession {
   navigate: (url: string) => Promise<void>;
   screenshot: () => Promise<Buffer>;
   click: (selector: string) => Promise<void>;
+  clickByText: (text: string, options?: { exact?: boolean }) => Promise<boolean>;
   keypress: (key: string) => Promise<void>;
   wait: (ms: number) => Promise<void>;
   getConsoleLogs: () => Promise<ConsoleLog[]>;
+  switchToIframe?: (selector?: string) => Promise<boolean>;
+  switchToMainFrame?: () => Promise<void>;
+  clickAt?: (x: number, y: number) => Promise<boolean>;
 }
 
 export interface ConsoleLog {

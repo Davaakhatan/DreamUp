@@ -1,0 +1,23 @@
+{
+  "gameId": "2048",
+  "gameName": "2048 Puzzle Game",
+  "axes2D": [
+    {
+      "name": "Move",
+      "description": "2D movement for sliding tiles in 2048",
+      "smoothing": 0.2,
+      "bindings": [
+        { "type": "key", "input": "ArrowUp" },
+        { "type": "key", "input": "ArrowDown" },
+        { "type": "key", "input": "ArrowLeft" },
+        { "type": "key", "input": "ArrowRight" },
+        { "type": "key", "input": "w" },
+        { "type": "key", "input": "s" },
+        { "type": "key", "input": "a" },
+        { "type": "key", "input": "d" }
+      ]
+    }
+  ],
+  "notes": "2048 uses arrow keys or WASD to slide tiles. This schema ensures the agent uses the correct keys for movement."
+}
+

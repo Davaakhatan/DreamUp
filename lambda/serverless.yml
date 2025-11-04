@@ -1,0 +1,51 @@
+service: dreamup-qa-agent
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-1
+  timeout: 300 # 5 minutes (matches QA agent timeout)
+  memorySize: 1024
+  environment:
+    OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+    BROWSERBASE_API_KEY: ${env:BROWSERBASE_API_KEY}
+    BROWSERBASE_PROJECT_ID: ${env:BROWSERBASE_PROJECT_ID}
+    USE_LOCAL_BROWSER: ${env:USE_LOCAL_BROWSER, 'false'}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource: '*'
+
+functions:
+  testGame:
+    handler: dist/index.handler
+    events:
+      - http:
+          path: test
+          method: post
+          cors: true
+    timeout: 300
+    memorySize: 1024
+
+plugins:
+  - serverless-plugin-typescript
+
+package:
+  patterns:
+    - '!node_modules/**'
+    - '!src/**'
+    - '!*.ts'
+    - 'dist/**'
+    - 'package.json'
+    - 'node_modules/@browserbasehq/**'
+    - 'node_modules/openai/**'
+    - 'node_modules/playwright-core/**'
+    - 'node_modules/zod/**'
+

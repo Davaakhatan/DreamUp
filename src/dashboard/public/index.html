@@ -350,17 +350,176 @@
       opacity: 1 !important;
     }
 
-    .screenshot-label {
+    .screenshot-clickable {
+      cursor: pointer;
+      position: relative;
+    }
+
+    .screenshot-label-overlay {
       position: absolute;
       bottom: 0;
       left: 0;
       right: 0;
-      background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
-      padding: 0.5rem;
-      font-size: 0.75rem;
+      background: linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.4), transparent);
+      padding: 0.75rem;
       color: white;
       opacity: 0;
-      transition: opacity 0.2s;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+
+    .screenshot-item:hover .screenshot-label-overlay {
+      opacity: 1;
+    }
+
+    .screenshot-label-text {
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      text-transform: capitalize;
+    }
+
+    .screenshot-label-time {
+      font-size: 0.75rem;
+      opacity: 0.8;
+    }
+
+    .screenshot-more {
+      grid-column: span 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      cursor: pointer;
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      transition: all 0.2s;
+    }
+
+    .screenshot-more:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Screenshot Modal */
+    .screenshot-modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.95);
+      backdrop-filter: blur(10px);
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    .screenshot-modal.active {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .screenshot-modal-content {
+      position: relative;
+      max-width: 90vw;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .screenshot-modal-image {
+      max-width: 100%;
+      max-height: 80vh;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .screenshot-modal-info {
+      color: white;
+      text-align: center;
+      padding: 1rem;
+    }
+
+    .screenshot-modal-label {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      text-transform: capitalize;
+    }
+
+    .screenshot-modal-time {
+      font-size: 0.875rem;
+      opacity: 0.7;
+    }
+
+    .screenshot-modal-close {
+      position: absolute;
+      top: 2rem;
+      right: 2rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: white;
+    }
+
+    .screenshot-modal-close:hover {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.4);
+      transform: rotate(90deg);
+    }
+
+    .screenshot-modal-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: white;
+    }
+
+    .screenshot-modal-nav:hover {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .screenshot-modal-prev {
+      left: 2rem;
+    }
+
+    .screenshot-modal-next {
+      right: 2rem;
+    }
+
+    .screenshot-modal-nav:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
     }
 
     .loading {
@@ -825,6 +984,33 @@
       cursor: not-allowed;
     }
 
+    .btn-secondary {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      padding: 0.875rem 1.5rem;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      white-space: nowrap;
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 212, 255, 0.2);
+    }
+
+    .btn-secondary:active {
+      transform: translateY(0);
+    }
+
     .btn-spinner {
       animation: spin 1s linear infinite;
     }
@@ -913,14 +1099,25 @@
           placeholder="Enter game URL (e.g., https://play2048.co/)" 
           value=""
         >
-        <button id="run-test-btn" class="run-test-btn">
-          <span class="btn-text">Run Test</span>
-          <span class="btn-spinner" style="display: none;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-            </svg>
-          </span>
-        </button>
+        <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; width: 100%;">
+          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: var(--text-secondary); font-size: 0.875rem; user-select: none; white-space: nowrap;">
+            <input type="checkbox" id="show-browser-checkbox" style="cursor: pointer; width: 18px; height: 18px;">
+            <span>Show browser window</span>
+          </label>
+          <div style="display: flex; gap: 0.75rem; margin-left: auto;">
+            <button id="run-test-btn" class="run-test-btn">
+              <span class="btn-text">Run Test</span>
+              <span class="btn-spinner" style="display: none;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                </svg>
+              </span>
+            </button>
+            <button id="reset-test-btn" class="btn-secondary" style="display: none;" title="Reset stuck test">
+              <span>Reset</span>
+            </button>
+          </div>
+        </div>
       </div>
       <div id="test-status" class="test-status" style="display: none;"></div>
     </div>
@@ -1046,6 +1243,33 @@
       </div>
     </div>
 
+    <!-- Screenshot Modal -->
+    <div id="screenshot-modal" class="screenshot-modal">
+      <button class="screenshot-modal-close" id="modal-close">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+      <button class="screenshot-modal-nav screenshot-modal-prev" id="modal-prev" title="Previous screenshot">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
+      <button class="screenshot-modal-nav screenshot-modal-next" id="modal-next" title="Next screenshot">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </button>
+      <div class="screenshot-modal-content">
+        <img id="modal-image" class="screenshot-modal-image" src="" alt="Screenshot">
+        <div class="screenshot-modal-info">
+          <div id="modal-label" class="screenshot-modal-label"></div>
+          <div id="modal-time" class="screenshot-modal-time"></div>
+        </div>
+      </div>
+    </div>
+
     <div id="stats" class="stats-grid"></div>
     <div id="reports" class="reports-list">
       <div class="loading">
@@ -1062,7 +1286,7 @@
     const originalLog = console.log;
     
     console.error = function(...args) {
-      const message = args[0]?.toString() || '';
+      const message = args.join(' ');
       // Filter out browser extension errors
       if (message.includes('chrome-extension://') || 
           message.includes('background.js') ||
@@ -1074,31 +1298,58 @@
           message.includes('completion_list.html') ||
           message.includes('utils.js') ||
           message.includes('extensionState.js') ||
-          message.includes('heuristicsRedefinitions.js')) {
+          message.includes('heuristicsRedefinitions.js') ||
+          message.includes('ControlLooksLikePasswordCredentialField') ||
+          message.includes('postMessage')) {
         return; // Don't log extension errors
       }
       originalError.apply(console, args);
     };
 
     console.warn = function(...args) {
-      const message = args[0]?.toString() || '';
+      const message = args.join(' ');
       // Filter out browser extension warnings
       if (message.includes('chrome-extension://') || 
           message.includes('Failed to load resource') ||
-          message.includes('ERR_FILE_NOT_FOUND')) {
+          message.includes('ERR_FILE_NOT_FOUND') ||
+          message.includes('heuristicsRedefinitions') ||
+          message.includes('extensionState') ||
+          message.includes('utils.js') ||
+          message.includes('completion_list.html')) {
         return;
       }
       originalWarn.apply(console, args);
     };
     
+    // Also filter console.log for extension messages
+    console.log = function(...args) {
+      const message = args.join(' ');
+      if (message.includes('chrome-extension://') || 
+          message.includes('ERR_FILE_NOT_FOUND') ||
+          message.includes('heuristicsRedefinitions') ||
+          message.includes('extensionState') ||
+          message.includes('utils.js') ||
+          message.includes('completion_list.html')) {
+        return; // Suppress extension logs
+      }
+      originalLog.apply(console, args);
+    };
+    
     // Filter network errors from extensions
     window.addEventListener('error', function(e) {
-      if (e.filename && (
-        e.filename.includes('chrome-extension://') ||
-        e.message?.includes('ERR_FILE_NOT_FOUND') ||
-        e.message?.includes('chrome-extension://') ||
-        e.message?.includes('Failed to load resource')
-      )) {
+      const filename = e.filename || '';
+      const message = e.message || '';
+      if (filename.includes('chrome-extension://') ||
+          message.includes('ERR_FILE_NOT_FOUND') ||
+          message.includes('chrome-extension://') ||
+          message.includes('Failed to load resource') ||
+          message.includes('heuristicsRedefinitions') ||
+          message.includes('extensionState') ||
+          message.includes('utils.js') ||
+          message.includes('completion_list.html') ||
+          message.includes('ControlLooksLikePasswordCredentialField') ||
+          message.includes('FrameIsBrowserFrameError') ||
+          message.includes('FrameDoesNotExistError')) {
         e.preventDefault();
         e.stopPropagation();
         return false;
@@ -1107,16 +1358,135 @@
     
     // Filter unhandled promise rejections from extensions
     window.addEventListener('unhandledrejection', function(e) {
-      const reason = e.reason?.toString() || '';
+      const reason = e.reason?.message || e.reason?.toString() || '';
       if (reason.includes('chrome-extension://') || 
           reason.includes('ERR_FILE_NOT_FOUND') ||
-          reason.includes('Blocked extension request')) {
+          reason.includes('Blocked extension request') ||
+          reason.includes('Could not establish connection') ||
+          reason.includes('Receiving end does not exist') ||
+          reason.includes('FrameIsBrowserFrameError') ||
+          reason.includes('FrameDoesNotExistError') ||
+          reason.includes('ControlLooksLikePasswordCredentialField') ||
+          reason.includes('postMessage') ||
+          reason.includes('message port closed')) {
         e.preventDefault();
         return false;
       }
     });
 
     const API_BASE = window.location.origin;
+
+    // Screenshot modal state
+    let currentScreenshots = [];
+    let currentScreenshotIndex = 0;
+
+    // Convert screenshot label to human-readable text
+    function getScreenshotLabel(label, index) {
+      if (!label) {
+        const labels = ['Initial Load', 'After Interaction', 'Gameplay', 'Final State'];
+        return labels[index] || `Screenshot ${index + 1}`;
+      }
+      
+      // Convert common labels
+      const labelMap = {
+        'initial-load': 'Initial Load',
+        'after-movement': 'After Movement',
+        'after-click': 'After Click',
+        'gameplay': 'Gameplay',
+        'final-state': 'Final State',
+        'error-state': 'Error State',
+      };
+      
+      // Convert kebab-case to Title Case
+      if (labelMap[label.toLowerCase()]) {
+        return labelMap[label.toLowerCase()];
+      }
+      
+      // Convert kebab-case or snake_case to Title Case
+      return label
+        .replace(/[-_]/g, ' ')
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+    }
+
+    // Screenshot modal functions
+    function openScreenshotModal(screenshots, startIndex) {
+      currentScreenshots = screenshots;
+      currentScreenshotIndex = startIndex;
+      showScreenshot(currentScreenshotIndex);
+      document.getElementById('screenshot-modal').classList.add('active');
+      document.body.style.overflow = 'hidden'; // Prevent background scrolling
+    }
+
+    function closeScreenshotModal() {
+      document.getElementById('screenshot-modal').classList.remove('active');
+      document.body.style.overflow = ''; // Restore scrolling
+      currentScreenshots = [];
+      currentScreenshotIndex = 0;
+    }
+
+    function showScreenshot(index) {
+      if (index < 0 || index >= currentScreenshots.length) return;
+      
+      currentScreenshotIndex = index;
+      const screenshot = currentScreenshots[index];
+      const modalImage = document.getElementById('modal-image');
+      const modalLabel = document.getElementById('modal-label');
+      const modalTime = document.getElementById('modal-time');
+      const modalPrev = document.getElementById('modal-prev');
+      const modalNext = document.getElementById('modal-next');
+      
+      modalImage.src = `${API_BASE}/api/screenshots/${screenshot.filename}`;
+      modalLabel.textContent = getScreenshotLabel(screenshot.label, index);
+      modalTime.textContent = new Date(screenshot.timestamp).toLocaleString();
+      
+      // Update navigation buttons
+      modalPrev.disabled = index === 0;
+      modalNext.disabled = index === currentScreenshots.length - 1;
+    }
+
+    function nextScreenshot() {
+      if (currentScreenshotIndex < currentScreenshots.length - 1) {
+        showScreenshot(currentScreenshotIndex + 1);
+      }
+    }
+
+    function prevScreenshot() {
+      if (currentScreenshotIndex > 0) {
+        showScreenshot(currentScreenshotIndex - 1);
+      }
+    }
+
+    // Modal event listeners
+    document.addEventListener('DOMContentLoaded', () => {
+      const modal = document.getElementById('screenshot-modal');
+      const modalClose = document.getElementById('modal-close');
+      const modalPrev = document.getElementById('modal-prev');
+      const modalNext = document.getElementById('modal-next');
+      
+      modalClose?.addEventListener('click', closeScreenshotModal);
+      modalPrev?.addEventListener('click', prevScreenshot);
+      modalNext?.addEventListener('click', nextScreenshot);
+      
+      // Close on background click
+      modal?.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          closeScreenshotModal();
+        }
+      });
+      
+      // Close on Escape key
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal?.classList.contains('active')) {
+          closeScreenshotModal();
+        } else if (e.key === 'ArrowLeft' && modal?.classList.contains('active')) {
+          prevScreenshot();
+        } else if (e.key === 'ArrowRight' && modal?.classList.contains('active')) {
+          nextScreenshot();
+        }
+      });
+    });
 
     async function fetchReports() {
       try {
@@ -1187,9 +1557,10 @@
         return;
       }
 
-      reportsContainer.innerHTML = reports.map(report => {
+      reportsContainer.innerHTML = reports.map((report, reportIndex) => {
         const statusClass = `badge-${report.status}`;
         const scoreClass = getScoreClass(report.playability_score);
+        const allScreenshots = report.screenshots || [];
         
         return `
           <div class="report-card">
@@ -1264,17 +1635,23 @@
               </div>
             ` : ''}
 
-            ${report.screenshots.length > 0 ? `
+            ${allScreenshots.length > 0 ? `
               <div class="screenshots-grid">
-                ${report.screenshots.slice(0, 4).map(screenshot => `
-                  <div class="screenshot-item" title="${screenshot.label || 'Screenshot'}: ${new Date(screenshot.timestamp).toLocaleString()}">
-                    <img src="${API_BASE}/api/screenshots/${screenshot.filename}?t=${Date.now()}" alt="${screenshot.label || 'Screenshot'}" loading="lazy" onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<div style=\\'padding: 2rem; text-align: center; color: var(--text-secondary); font-size: 0.875rem;\\'>Screenshot not available<br><small>File: ${screenshot.filename}</small></div>'">
-                    ${screenshot.label ? `<div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); padding: 0.5rem; font-size: 0.75rem; color: white; opacity: 0; transition: opacity 0.2s;" class="screenshot-label">${screenshot.label}</div>` : ''}
+                ${allScreenshots.slice(0, 4).map((screenshot, idx) => {
+                  const label = getScreenshotLabel(screenshot.label, idx);
+                  return `
+                  <div class="screenshot-item screenshot-clickable" data-screenshot-index="${idx}" data-report-index="${reportIndex}" title="Click to view full size - ${label}">
+                    <img src="${API_BASE}/api/screenshots/${screenshot.filename}?t=${Date.now()}" alt="${label}" loading="lazy" onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<div style=\\'padding: 2rem; text-align: center; color: var(--text-secondary); font-size: 0.875rem;\\'>Screenshot not available<br><small>File: ${screenshot.filename}</small></div>'">
+                    <div class="screenshot-label-overlay">
+                      <div class="screenshot-label-text">${label}</div>
+                      <div class="screenshot-label-time">${new Date(screenshot.timestamp).toLocaleTimeString()}</div>
+                    </div>
                   </div>
-                `).join('')}
-                ${report.screenshots.length > 4 ? `
-                  <div style="grid-column: span 1; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 0.875rem;">
-                    +${report.screenshots.length - 4} more
+                `;
+                }).join('')}
+                ${allScreenshots.length > 4 ? `
+                  <div class="screenshot-more screenshot-clickable" data-report-index="${reportIndex}" data-total="${allScreenshots.length}" title="View all ${allScreenshots.length} screenshots">
+                    +${allScreenshots.length - 4} more
                   </div>
                 ` : ''}
               </div>
@@ -1282,6 +1659,25 @@
           </div>
         `;
       }).join('');
+      
+      // Add click handlers for screenshots after rendering
+      setTimeout(() => {
+        const clickableScreenshots = document.querySelectorAll('.screenshot-clickable');
+        clickableScreenshots.forEach(el => {
+          // Remove existing listeners to avoid duplicates
+          const newEl = el.cloneNode(true);
+          el.parentNode?.replaceChild(newEl, el);
+          
+          newEl.addEventListener('click', function() {
+            const reportIdx = parseInt(this.dataset.reportIndex);
+            const screenshotIdx = parseInt(this.dataset.screenshotIndex || 0);
+            const report = reports[reportIdx];
+            if (report && report.screenshots) {
+              openScreenshotModal(report.screenshots, screenshotIdx);
+            }
+          });
+        });
+      }, 100);
     }
 
     // Pipeline Animation Logic
@@ -1351,12 +1747,14 @@
         // Start animation FIRST so browser shows URL immediately
         startTestAnimation();
         
+        const showBrowser = document.getElementById('show-browser-checkbox')?.checked || false;
+        
         const response = await fetch(`${API_BASE}/api/test`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ gameUrl }),
+          body: JSON.stringify({ gameUrl, showBrowser }),
         });
 
         const data = await response.json();
@@ -1484,21 +1882,51 @@
     function showBrowserError(errorMessage) {
       const pageEl = document.getElementById('browser-page');
       if (pageEl) {
-        pageEl.innerHTML = `
-          <div class="browser-game-content" style="color: #d32f2f;">
-            <h2 style="color: #d32f2f;">Error Loading Game</h2>
-            <p style="color: #666; margin-top: 1rem;">${errorMessage || 'Failed to load game. Please check the URL and try again.'}</p>
-            <div style="margin-top: 2rem; padding: 1.5rem; background: #ffebee; border: 1px solid #ef5350; border-radius: 8px;">
-              <p style="color: #c62828; font-size: 0.875rem; margin: 0;">
-                <strong>Possible causes:</strong><br>
-                • Invalid game URL<br>
-                • Game requires user interaction before loading<br>
-                • Network connectivity issues<br>
-                • Browser automation service unavailable
-              </p>
+        // Check if it's a quota limit error
+        const isQuotaError = errorMessage && (
+          errorMessage.includes('quota') || 
+          errorMessage.includes('402') || 
+          errorMessage.includes('Payment Required') ||
+          errorMessage.includes('browser minutes limit')
+        );
+        
+        let errorContent = '';
+        if (isQuotaError) {
+          errorContent = `
+            <div class="browser-game-content" style="color: #d32f2f;">
+              <h2 style="color: #d32f2f;">Browserbase Quota Limit Reached</h2>
+              <p style="color: #666; margin-top: 1rem;">Your free plan browser minutes have been exhausted.</p>
+              <div style="margin-top: 2rem; padding: 1.5rem; background: #fff3e0; border: 1px solid #ff9800; border-radius: 8px;">
+                <p style="color: #e65100; font-size: 0.875rem; margin: 0 0 1rem 0;">
+                  <strong>Solutions:</strong>
+                </p>
+                <ul style="color: #e65100; font-size: 0.875rem; margin: 0; padding-left: 1.5rem;">
+                  <li>Upgrade your Browserbase account at <a href="https://browserbase.com/plans" target="_blank" style="color: #1976d2;">https://browserbase.com/plans</a></li>
+                  <li>Wait for your monthly quota to reset</li>
+                  <li>Check your quota usage at <a href="https://browserbase.com/dashboard" target="_blank" style="color: #1976d2;">Browserbase Dashboard</a></li>
+                </ul>
+              </div>
             </div>
-          </div>
-        `;
+          `;
+        } else {
+          errorContent = `
+            <div class="browser-game-content" style="color: #d32f2f;">
+              <h2 style="color: #d32f2f;">Error Loading Game</h2>
+              <p style="color: #666; margin-top: 1rem;">${errorMessage || 'Failed to load game. Please check the URL and try again.'}</p>
+              <div style="margin-top: 2rem; padding: 1.5rem; background: #ffebee; border: 1px solid #ef5350; border-radius: 8px;">
+                <p style="color: #c62828; font-size: 0.875rem; margin: 0;">
+                  <strong>Possible causes:</strong><br>
+                  • Invalid game URL<br>
+                  • Game requires user interaction before loading<br>
+                  • Network connectivity issues<br>
+                  • Browser automation service unavailable
+                </p>
+              </div>
+            </div>
+          `;
+        }
+        
+        pageEl.innerHTML = errorContent;
       }
       
       const statusEl = document.getElementById('browser-status');
@@ -1743,11 +2171,12 @@
             // Show final browser state before hiding
             const hasError = data.phase === 'error' || data.phase === 'failed' || data.error;
             if (hasError) {
-              showBrowserError(data.error || 'Test failed. Check results below for details.');
+              const errorMsg = data.error || 'Test failed. Check results below for details.';
+              showBrowserError(errorMsg);
               // Keep browser visible for errors so user can see what happened
               setTimeout(() => {
                 hideBrowserSimulation();
-              }, 5000);
+              }, 8000); // Keep visible longer for quota errors
               showTestStatus('Test failed. See details below.', 'error');
             } else {
               // Hide browser simulation after showing completion
@@ -1772,6 +2201,25 @@
               runTestBtn.querySelector('.btn-spinner').style.display = 'none';
             }
           } else if (data.running) {
+            // Show reset button if test has been running for more than 2 minutes (likely stuck)
+            const resetBtn = document.getElementById('reset-test-btn');
+            if (resetBtn && data.elapsedTime && data.elapsedTime > 120) {
+              resetBtn.style.display = 'block';
+              resetBtn.onclick = async () => {
+                if (confirm('Reset stuck test? This will stop the current test and allow you to start a new one.')) {
+                  try {
+                    const response = await fetch('/api/test/reset', { method: 'POST' });
+                    if (response.ok) {
+                      resetBtn.style.display = 'none';
+                      location.reload(); // Reload to refresh state
+                    }
+                  } catch (error) {
+                    console.error('Reset failed:', error);
+                  }
+                }
+              };
+            }
+            
             // Update animation based on actual test phase (if available)
             if (data.phase) {
               updateAnimationForPhase(data.phase);
@@ -1794,6 +2242,12 @@
             runTestBtn.disabled = false;
             runTestBtn.querySelector('.btn-text').textContent = 'Run Test';
             runTestBtn.querySelector('.btn-spinner').style.display = 'none';
+            
+            // Hide reset button when test is not running
+            const resetBtn = document.getElementById('reset-test-btn');
+            if (resetBtn) {
+              resetBtn.style.display = 'none';
+            }
           }
         }
       }, 1000);
