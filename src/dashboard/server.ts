@@ -169,6 +169,14 @@ export class DashboardServer {
       }
       
       try {
+        // Validate environment variables before starting
+        if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes('your_openai_api_key')) {
+          return res.status(500).json({ 
+            error: 'Invalid OPENAI_API_KEY',
+            message: 'OPENAI_API_KEY is missing or contains placeholder text. Please set a valid OpenAI API key in Railway environment variables.'
+          });
+        }
+
         // Get showBrowser option from request
         const showBrowser = (req.body as any).showBrowser === true;
         
@@ -185,6 +193,7 @@ export class DashboardServer {
           gameUrl 
         });
       } catch (error) {
+        console.error('Error starting test:', error);
         res.status(500).json({ 
           error: 'Failed to start test',
           message: error instanceof Error ? error.message : String(error)
@@ -345,8 +354,17 @@ export class DashboardServer {
       }
       
       // Initialize components
-      // Enable Firebase if USE_FIREBASE env var is set
       const evidenceCapture = new EvidenceCapture(this.outputDir);
+      
+      // Validate OpenAI API key before creating evaluator
+      if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes('your_openai_api_key')) {
+        throw new Error(
+          'OPENAI_API_KEY is missing or invalid. ' +
+          'Please set a valid OpenAI API key in Railway environment variables. ' +
+          'Get your key at: https://platform.openai.com/api-keys'
+        );
+      }
+      
       const evaluator = new Evaluator();
       
       // Create agent
