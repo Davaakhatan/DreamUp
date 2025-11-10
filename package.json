@@ -8,6 +8,7 @@
     "qa-agent": "./dist/cli.js"
   },
   "scripts": {
+    "postinstall": "npx playwright install --with-deps chromium",
     "build": "tsc && npm run build:copy-public",
     "build:copy-public": "mkdir -p dist/dashboard/public && cp -r src/dashboard/public/* dist/dashboard/public/",
     "start": "node dist/dashboard/prod.js",
