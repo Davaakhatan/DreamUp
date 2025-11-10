@@ -32,9 +32,23 @@ Check in Railway → Settings → Deploy:
 #### 3. Check Environment Variables
 
 Railway → Variables tab, verify:
-- ✅ `OPENAI_API_KEY` is set
+- ✅ `OPENAI_API_KEY` is set to a **REAL API KEY** (not placeholder like `your_openai_api_key_here`)
 - ✅ `PORT` is set (Railway sets this automatically, but verify)
-- ✅ `USE_LOCAL_BROWSER=true` (if using local browser)
+- ✅ Either:
+  - `USE_LOCAL_BROWSER=true` (to use free local Playwright), OR
+  - `BROWSERBASE_API_KEY` and `BROWSERBASE_PROJECT_ID` are set to real values (not placeholders)
+
+**Common Error:** Placeholder values in environment variables!
+- ❌ `OPENAI_API_KEY=your_openai_api_key_here` → Will fail!
+- ✅ `OPENAI_API_KEY=sk-proj-...` (real key) → Will work!
+
+**To fix:**
+1. Go to Railway → Variables tab
+2. Click on each variable with placeholder values
+3. Replace with your actual API keys:
+   - Get OpenAI key from: https://platform.openai.com/api-keys
+   - Get Browserbase key from: https://www.browserbase.com (if using Browserbase)
+4. Save and Railway will auto-redeploy
 
 #### 4. Verify Port Binding
 
